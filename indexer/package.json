@@ -1,0 +1,11 @@
+{
+  "name": "@carbonveritas/indexer",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsup src/main.ts --format esm --dts",
+    "lint": "eslint src --ext .ts",
+    "test": "jest"
+  }
+}
