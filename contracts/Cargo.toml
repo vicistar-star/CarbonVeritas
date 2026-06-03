@@ -1,0 +1,11 @@
+[workspace]
+members = [
+    "shared",
+    "credit-registry",
+    "retirement-tracker",
+    "marketplace",
+    "merkle-bridge",
+    "revenue-split",
+    "verifier-stake",
+]
+resolver = "2"
