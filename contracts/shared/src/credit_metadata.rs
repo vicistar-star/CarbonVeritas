@@ -28,7 +28,7 @@ pub struct CreditMetadata {
     pub ipfs_hash: String,
     pub status: CreditStatus,
     pub created_at: u64,
-    pub token_id: Option<BytesN<32>>,
+    pub token_id: BytesN<32>,
 }
 
 #[contracttype]
@@ -77,7 +77,7 @@ pub struct RetirementRecord {
     pub tx_hash: BytesN<32>,
     pub ledger_sequence: u32,
     pub timestamp: u64,
-    pub certificate_hash: Option<BytesN<32>>,
+    pub certificate_hash: BytesN<32>,
 }
 
 #[contracttype]

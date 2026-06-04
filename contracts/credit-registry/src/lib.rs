@@ -29,6 +29,7 @@ impl CreditRegistry {
         let mut m = metadata;
         m.status = CreditStatus::Pending;
         m.ipfs_hash = ipfs_hash;
+        m.token_id = BytesN::from_array(&env, &[0u8; 32]);
         m.created_at = env.ledger().timestamp();
         storage::write_credit(&env, credit_id, &m);
         storage::write_owner(&env, credit_id, &issuer);
@@ -68,10 +69,10 @@ impl CreditRegistry {
             credit.status = CreditStatus::Active;
             let id_bytes = BytesN::<8>::from_array(&env, &credit_id.to_be_bytes());
             let hash: BytesN<32> = env.crypto().sha256(&Bytes::from(id_bytes)).into();
-            credit.token_id = Some(hash);
+            credit.token_id = hash.clone();
             storage::write_credit(&env, credit_id, &credit);
             events::emit_credit_minted(&env, credit_id);
-            return credit.token_id;
+            return Some(hash);
         }
         None
     }

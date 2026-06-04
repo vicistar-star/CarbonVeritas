@@ -34,7 +34,7 @@ impl RetirementTracker {
             tx_hash: BytesN::from_array(&env, &[0u8; 32]),
             ledger_sequence: env.ledger().sequence(),
             timestamp: env.ledger().timestamp(),
-            certificate_hash: None,
+            certificate_hash: BytesN::from_array(&env, &[0u8; 32]),
         };
         let _ = credit_id;
         record
