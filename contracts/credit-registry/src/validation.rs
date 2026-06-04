@@ -25,6 +25,9 @@ pub fn validate_metadata(env: &Env, metadata: &CreditMetadata) {
     if metadata.geography.len() != 2 {
         panic_with_error!(env, Error::InvalidInput);
     }
+    if metadata.sdg_flags > 0x3FFF {
+        panic_with_error!(env, Error::InvalidInput);
+    }
     if metadata.buffer_contribution_pct > 20 {
         panic_with_error!(env, Error::InvalidInput);
     }
@@ -42,6 +45,7 @@ pub fn require_admin(env: &Env) {
 }
 
 pub fn require_verifier(env: &Env, verifier: &Address) {
-    let _ = verifier;
-    let _ = env;
+    if !storage::is_verifier(env, verifier) {
+        panic_with_error!(env, Error::NotAuthorized);
+    }
 }

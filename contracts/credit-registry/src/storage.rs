@@ -9,6 +9,8 @@ const OWNER_PREFIX: &str = "o";
 const APPROVAL_PREFIX: &str = "a";
 const ISSUER_LIST_PREFIX: &str = "il";
 const OWNER_LIST_PREFIX: &str = "ol";
+const VERIFIER_LIST_KEY: &str = "vl";
+
 pub fn next_credit_id(env: &Env) -> u64 {
     let counter: u64 = env
         .storage()
@@ -47,30 +49,73 @@ pub fn read_owner(env: &Env, credit_id: u64) -> Address {
         .unwrap_or_else(|| panic_with_error!(env, Error::CreditNotFound))
 }
 
+pub fn write_approval(env: &Env, credit_id: u64, record: &ApprovalRecord) {
+    let mut records: Vec<ApprovalRecord> = env
+        .storage()
+        .instance()
+        .get(&(APPROVAL_PREFIX, credit_id))
+        .unwrap_or_else(|| vec![env]);
+    records.push_back(record.clone());
+    env.storage()
+        .instance()
+        .set(&(APPROVAL_PREFIX, credit_id), &records);
+}
+
 pub fn has_approval(env: &Env, credit_id: u64, verifier: &Address) -> bool {
+    let records: Vec<ApprovalRecord> = env
+        .storage()
+        .instance()
+        .get(&(APPROVAL_PREFIX, credit_id))
+        .unwrap_or_else(|| vec![env]);
+    for i in 0..records.len() {
+        if let Some(r) = records.get(i) {
+            if r.verifier == *verifier {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+pub fn count_approvals(env: &Env, credit_id: u64) -> u32 {
+    let records: Vec<ApprovalRecord> = env
+        .storage()
+        .instance()
+        .get(&(APPROVAL_PREFIX, credit_id))
+        .unwrap_or_else(|| vec![env]);
+    let mut count = 0;
+    for i in 0..records.len() {
+        if let Some(r) = records.get(i) {
+            if r.approved {
+                count += 1;
+            }
+        }
+    }
+    count
+}
+
+pub fn count_rejections(env: &Env, credit_id: u64) -> u32 {
+    let records: Vec<ApprovalRecord> = env
+        .storage()
+        .instance()
+        .get(&(APPROVAL_PREFIX, credit_id))
+        .unwrap_or_else(|| vec![env]);
+    let mut count = 0;
+    for i in 0..records.len() {
+        if let Some(r) = records.get(i) {
+            if !r.approved {
+                count += 1;
+            }
+        }
+    }
+    count
+}
+
+pub fn read_provenance(env: &Env, credit_id: u64) -> Vec<ApprovalRecord> {
     env.storage()
         .instance()
-        .has(&(APPROVAL_PREFIX, credit_id, verifier.clone()))
-}
-
-pub fn write_approval(env: &Env, credit_id: u64, verifier: &Address, record: &ApprovalRecord) {
-    env.storage()
-        .instance()
-        .set(&(APPROVAL_PREFIX, credit_id, verifier.clone()), record);
-}
-
-pub fn count_approvals(env: &Env, _credit_id: u64) -> u32 {
-    let _ = env;
-    0
-}
-
-pub fn count_rejections(env: &Env, _credit_id: u64) -> u32 {
-    let _ = env;
-    0
-}
-
-pub fn read_provenance(env: &Env, _credit_id: u64) -> Vec<ApprovalRecord> {
-    vec![env]
+        .get(&(APPROVAL_PREFIX, credit_id))
+        .unwrap_or_else(|| vec![env])
 }
 
 pub fn add_credit_to_issuer(env: &Env, issuer: &Address, credit_id: u64) {
@@ -139,4 +184,29 @@ pub fn read_config(env: &Env) -> ContractConfig {
 pub fn read_admin(env: &Env) -> Address {
     let config = read_config(env);
     config.admin
+}
+
+pub fn read_verifiers(env: &Env) -> Vec<Address> {
+    env.storage()
+        .instance()
+        .get(&VERIFIER_LIST_KEY)
+        .unwrap_or_else(|| vec![env])
+}
+
+pub fn write_verifiers(env: &Env, verifiers: &Vec<Address>) {
+    env.storage()
+        .instance()
+        .set(&VERIFIER_LIST_KEY, verifiers);
+}
+
+pub fn is_verifier(env: &Env, addr: &Address) -> bool {
+    let verifiers = read_verifiers(env);
+    for i in 0..verifiers.len() {
+        if let Some(v) = verifiers.get(i) {
+            if v == *addr {
+                return true;
+            }
+        }
+    }
+    false
 }

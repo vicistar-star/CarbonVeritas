@@ -4,7 +4,7 @@ use soroban_sdk::{
     contract, contractimpl, panic_with_error, Address, Bytes, BytesN, Env, String, Vec,
 };
 
-use carbonveritas_shared::credit_metadata::{ApprovalRecord, CreditMetadata, CreditStatus};
+use carbonveritas_shared::credit_metadata::{ApprovalRecord, ContractConfig, CreditMetadata, CreditStatus};
 use carbonveritas_shared::errors::Error;
 
 pub mod events;
@@ -60,7 +60,7 @@ impl CreditRegistry {
             timestamp: env.ledger().timestamp(),
             comments,
         };
-        storage::write_approval(&env, credit_id, &verifier, &record);
+        storage::write_approval(&env, credit_id, &record);
         events::emit_credit_approved(&env, credit_id, &verifier);
 
         let config = storage::read_config(&env);
@@ -98,7 +98,7 @@ impl CreditRegistry {
             timestamp: env.ledger().timestamp(),
             comments: reason,
         };
-        storage::write_approval(&env, credit_id, &verifier, &record);
+        storage::write_approval(&env, credit_id, &record);
         events::emit_credit_rejected(&env, credit_id, &verifier);
 
         let config = storage::read_config(&env);
@@ -158,9 +158,12 @@ impl CreditRegistry {
     }
 
     pub fn init(env: Env, admin: Address, threshold: u32, quorum: u32) {
+        if threshold == 0 || quorum == 0 || threshold > quorum {
+            panic_with_error!(&env, Error::InvalidInput);
+        }
         storage::write_config(
             &env,
-            &carbonveritas_shared::credit_metadata::ContractConfig {
+            &ContractConfig {
                 admin,
                 verifier_threshold: threshold,
                 verifier_quorum: quorum,
@@ -169,5 +172,44 @@ impl CreditRegistry {
                 buffer_pool_pct: 10,
             },
         );
+    }
+
+    pub fn add_verifier(env: Env, admin: Address, verifier: Address) {
+        admin.require_auth();
+        validation::require_admin(&env);
+        let mut verifiers = storage::read_verifiers(&env);
+        for i in 0..verifiers.len() {
+            if let Some(v) = verifiers.get(i) {
+                if v == verifier {
+                    panic_with_error!(&env, Error::VerifierAlreadyRegistered);
+                }
+            }
+        }
+        if verifiers.len() >= carbonveritas_shared::constants::MAX_VERIFIERS {
+            panic_with_error!(&env, Error::InvalidInput);
+        }
+        verifiers.push_back(verifier);
+        storage::write_verifiers(&env, &verifiers);
+    }
+
+    pub fn remove_verifier(env: Env, admin: Address, verifier: Address) {
+        admin.require_auth();
+        validation::require_admin(&env);
+        let verifiers = storage::read_verifiers(&env);
+        let mut new_list: Vec<Address> = Vec::new(&env);
+        let mut found = false;
+        for i in 0..verifiers.len() {
+            if let Some(v) = verifiers.get(i) {
+                if v == verifier {
+                    found = true;
+                } else {
+                    new_list.push_back(v);
+                }
+            }
+        }
+        if !found {
+            panic_with_error!(&env, Error::VerifierNotFound);
+        }
+        storage::write_verifiers(&env, &new_list);
     }
 }
