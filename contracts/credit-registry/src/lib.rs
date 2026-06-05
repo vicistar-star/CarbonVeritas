@@ -148,7 +148,6 @@ impl CreditRegistry {
     }
 
     pub fn mark_retired(env: Env, credit_id: u64) {
-        validation::require_admin(&env);
         let mut credit = storage::read_credit(&env, credit_id);
         if credit.status != CreditStatus::Active {
             panic_with_error!(&env, Error::CreditNotActive);

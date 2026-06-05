@@ -1,15 +1,25 @@
 #![no_std]
 
-use soroban_sdk::{contract, contractimpl, panic_with_error, Address, Env, String, Vec};
+use soroban_sdk::{auth::InvokerContractAuthEntry, contract, contractimpl, panic_with_error, Address, Env, String, Vec};
 
+use carbonveritas_credit_registry::CreditRegistryClient;
 use carbonveritas_shared::credit_metadata::{Offer, OfferStatus};
 use carbonveritas_shared::errors::Error;
+
+pub mod events;
+pub mod storage;
 
 #[contract]
 pub struct Marketplace;
 
 #[contractimpl]
 impl Marketplace {
+    pub fn init(env: Env, admin: Address, credit_registry: Address) {
+        admin.require_auth();
+        storage::write_admin(&env, &admin);
+        storage::write_credit_registry(&env, &credit_registry);
+    }
+
     pub fn create_offer(
         env: Env,
         seller: Address,
@@ -23,7 +33,17 @@ impl Marketplace {
         if amount <= 0 || price_per_tonne <= 0 {
             panic_with_error!(&env, Error::InvalidInput);
         }
-        let offer_id = Self::next_offer_id(&env);
+        if let Some(e) = expiry {
+            if e <= env.ledger().timestamp() {
+                panic_with_error!(&env, Error::InvalidInput);
+            }
+        }
+
+        let credit_registry = storage::read_credit_registry(&env);
+        let client = CreditRegistryClient::new(&env, &credit_registry);
+        client.transfer_credit(&seller, &env.current_contract_address(), &credit_id);
+
+        let offer_id = storage::next_offer_id(&env);
         let offer = Offer {
             offer_id,
             seller: seller.clone(),
@@ -36,25 +56,23 @@ impl Marketplace {
             created_at: env.ledger().timestamp(),
             status: OfferStatus::Active,
         };
-        env.storage().instance().set(&offer_id, &offer);
-        let _ = credit_id;
+        storage::write_offer(&env, offer_id, &offer);
+        storage::add_offer_to_seller(&env, &seller, offer_id);
+        storage::add_offer_to_all(&env, offer_id);
+        events::emit_offer_created(&env, offer_id, &seller);
         offer_id
     }
 
     pub fn buy_credits(env: Env, buyer: Address, offer_id: u64, amount: i128) -> bool {
         buyer.require_auth();
-        let mut offer: Offer = env
-            .storage()
-            .instance()
-            .get(&offer_id)
-            .unwrap_or_else(|| panic_with_error!(&env, Error::OfferNotFound));
+        let mut offer = storage::read_offer(&env, offer_id);
         if offer.status != OfferStatus::Active {
             panic_with_error!(&env, Error::OfferAlreadyFilled);
         }
         if let Some(expiry) = offer.expiry {
             if env.ledger().timestamp() > expiry {
                 offer.status = OfferStatus::Expired;
-                env.storage().instance().set(&offer_id, &offer);
+                storage::write_offer(&env, offer_id, &offer);
                 panic_with_error!(&env, Error::OfferExpired);
             }
         }
@@ -62,21 +80,30 @@ impl Marketplace {
         if amount <= 0 || amount > available {
             panic_with_error!(&env, Error::InsufficientAmount);
         }
+
+        let credit_registry = storage::read_credit_registry(&env);
+        let client = CreditRegistryClient::new(&env, &credit_registry);
+        let auth_entries: Vec<InvokerContractAuthEntry> = Vec::new(&env);
+        env.authorize_as_current_contract(auth_entries);
+        client.transfer_credit(
+            &env.current_contract_address(),
+            &buyer,
+            &offer.credit_id,
+        );
+
         offer.filled += amount;
         if offer.filled >= offer.amount {
             offer.status = OfferStatus::Filled;
         }
-        env.storage().instance().set(&offer_id, &offer);
+        storage::write_offer(&env, offer_id, &offer);
+        events::emit_offer_filled(&env, offer_id, &buyer, amount);
         true
     }
 
     pub fn cancel_offer(env: Env, caller: Address, offer_id: u64) -> bool {
         caller.require_auth();
-        let mut offer: Offer = env
-            .storage()
-            .instance()
-            .get(&offer_id)
-            .unwrap_or_else(|| panic_with_error!(&env, Error::OfferNotFound));
+        let mut offer = storage::read_offer(&env, offer_id);
+
         if offer.seller != caller {
             if let Some(expiry) = offer.expiry {
                 if env.ledger().timestamp() <= expiry {
@@ -86,8 +113,24 @@ impl Marketplace {
                 panic_with_error!(&env, Error::OfferNotCancellable);
             }
         }
+
+        if offer.status != OfferStatus::Active {
+            panic_with_error!(&env, Error::OfferAlreadyFilled);
+        }
+
+        let credit_registry = storage::read_credit_registry(&env);
+        let client = CreditRegistryClient::new(&env, &credit_registry);
+        let auth_entries: Vec<InvokerContractAuthEntry> = Vec::new(&env);
+        env.authorize_as_current_contract(auth_entries);
+        client.transfer_credit(
+            &env.current_contract_address(),
+            &offer.seller,
+            &offer.credit_id,
+        );
+
         offer.status = OfferStatus::Cancelled;
-        env.storage().instance().set(&offer_id, &offer);
+        storage::write_offer(&env, offer_id, &offer);
+        events::emit_offer_cancelled(&env, offer_id);
         true
     }
 
@@ -96,26 +139,17 @@ impl Marketplace {
         _methodology_filter: Option<String>,
         _geography_filter: Option<String>,
         _max_price: Option<i128>,
-        _offset: u32,
-        _limit: u32,
+        offset: u32,
+        limit: u32,
     ) -> Vec<Offer> {
-        Vec::new(&env)
+        storage::read_all_offers(&env, offset, limit)
     }
 
     pub fn get_offer(env: Env, offer_id: u64) -> Offer {
-        env.storage()
-            .instance()
-            .get(&offer_id)
-            .unwrap_or_else(|| panic_with_error!(&env, Error::OfferNotFound))
+        storage::read_offer(&env, offer_id)
     }
 
-    pub fn get_offers_by_seller(env: Env, _seller: Address) -> Vec<u64> {
-        Vec::new(&env)
-    }
-
-    fn next_offer_id(env: &Env) -> u64 {
-        let counter: u64 = env.storage().instance().get(&0u64).unwrap_or(0);
-        env.storage().instance().set(&0u64, &(counter + 1));
-        counter + 1
+    pub fn get_offers_by_seller(env: Env, seller: Address) -> Vec<u64> {
+        storage::read_offers_by_seller(&env, &seller)
     }
 }
