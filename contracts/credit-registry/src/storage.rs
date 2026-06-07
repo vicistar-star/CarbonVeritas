@@ -210,3 +210,18 @@ pub fn is_verifier(env: &Env, addr: &Address) -> bool {
     }
     false
 }
+
+const BRIDGE_PREFIX: &str = "b";
+
+pub fn is_authorized_bridge(env: &Env, bridge: &Address) -> bool {
+    env.storage()
+        .instance()
+        .get(&(BRIDGE_PREFIX, bridge.clone()))
+        .unwrap_or(false)
+}
+
+pub fn set_authorized_bridge(env: &Env, bridge: &Address, authorized: bool) {
+    env.storage()
+        .instance()
+        .set(&(BRIDGE_PREFIX, bridge.clone()), &authorized);
+}
