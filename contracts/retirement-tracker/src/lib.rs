@@ -89,16 +89,40 @@ impl RetirementTracker {
             panic_with_error!(&env, Error::InvalidInput);
         }
 
+        let credit_registry = storage::read_credit_registry(&env);
+        let client = CreditRegistryClient::new(&env, &credit_registry);
+
         let mut results: Vec<RetirementRecord> = Vec::new(&env);
         for input in retirements.iter() {
-            let record = Self::retire(
-                env.clone(),
-                owner.clone(),
-                input.credit_id,
-                input.reason,
-                input.beneficiary,
-                input.accounting_period,
-            );
+            if input.reason.is_empty() || input.beneficiary.is_empty() || input.accounting_period.is_empty() {
+                panic_with_error!(&env, Error::InvalidInput);
+            }
+            if storage::is_retired(&env, input.credit_id) {
+                panic_with_error!(&env, Error::CreditAlreadyRetired);
+            }
+
+            let owner_on_chain = client.get_owner(&input.credit_id);
+            if owner_on_chain != owner {
+                panic_with_error!(&env, Error::CreditNotOwned);
+            }
+
+            client.mark_retired(&input.credit_id);
+
+            let record = RetirementRecord {
+                credit_id: input.credit_id,
+                retired_by: owner.clone(),
+                beneficiary: input.beneficiary,
+                reason: input.reason,
+                accounting_period: input.accounting_period,
+                tonnes_retired: 0,
+                tx_hash: BytesN::from_array(&env, &[0u8; 32]),
+                ledger_sequence: env.ledger().sequence(),
+                timestamp: env.ledger().timestamp(),
+                certificate_hash: BytesN::from_array(&env, &[0u8; 32]),
+            };
+            storage::write_retirement_record(&env, input.credit_id, &record);
+            storage::add_retirement_to_beneficiary(&env, &record.beneficiary, input.credit_id);
+            events::emit_retired(&env, &record);
             results.push_back(record);
         }
         results
