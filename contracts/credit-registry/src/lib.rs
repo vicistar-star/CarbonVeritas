@@ -12,6 +12,9 @@ pub mod storage;
 pub mod types;
 pub mod validation;
 
+#[cfg(test)]
+mod test;
+
 #[contract]
 pub struct CreditRegistry;
 
@@ -210,5 +213,46 @@ impl CreditRegistry {
             panic_with_error!(&env, Error::VerifierNotFound);
         }
         storage::write_verifiers(&env, &new_list);
+    }
+
+    pub fn mint_bridged(
+        env: Env,
+        bridge: Address,
+        to: Address,
+        metadata: CreditMetadata,
+    ) -> u64 {
+        bridge.require_auth();
+        if !storage::is_authorized_bridge(&env, &bridge) {
+            panic_with_error!(&env, Error::NotAuthorized);
+        }
+        validation::validate_metadata(&env, &metadata);
+        
+        let credit_id = storage::next_credit_id(&env);
+        let mut m = metadata;
+        m.status = CreditStatus::Active;
+        m.created_at = env.ledger().timestamp();
+        
+        let id_bytes = BytesN::<8>::from_array(&env, &credit_id.to_be_bytes());
+        let hash: BytesN<32> = env.crypto().sha256(&Bytes::from(id_bytes)).into();
+        m.token_id = hash;
+
+        storage::write_credit(&env, credit_id, &m);
+        storage::write_owner(&env, credit_id, &to);
+        storage::add_credit_to_owner(&env, &to, credit_id);
+        
+        events::emit_credit_minted(&env, credit_id);
+        credit_id
+    }
+
+    pub fn add_bridge(env: Env, admin: Address, bridge: Address) {
+        admin.require_auth();
+        validation::require_admin(&env);
+        storage::set_authorized_bridge(&env, &bridge, true);
+    }
+
+    pub fn remove_bridge(env: Env, admin: Address, bridge: Address) {
+        admin.require_auth();
+        validation::require_admin(&env);
+        storage::set_authorized_bridge(&env, &bridge, false);
     }
 }

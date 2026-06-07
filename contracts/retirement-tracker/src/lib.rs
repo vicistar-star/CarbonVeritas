@@ -10,6 +10,9 @@ use carbonveritas_shared::errors::Error;
 pub mod events;
 pub mod storage;
 
+#[cfg(test)]
+mod test;
+
 #[contract]
 pub struct RetirementTracker;
 
@@ -49,6 +52,12 @@ impl RetirementTracker {
 
         let credit_registry = storage::read_credit_registry(&env);
         let client = CreditRegistryClient::new(&env, &credit_registry);
+        
+        let owner_on_chain = client.get_owner(&credit_id);
+        if owner_on_chain != owner {
+            panic_with_error!(&env, Error::CreditNotOwned);
+        }
+
         client.mark_retired(&credit_id);
 
         let record = RetirementRecord {

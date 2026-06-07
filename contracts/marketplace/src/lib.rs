@@ -9,6 +9,9 @@ use carbonveritas_shared::errors::Error;
 pub mod events;
 pub mod storage;
 
+#[cfg(test)]
+mod test;
+
 #[contract]
 pub struct Marketplace;
 
@@ -80,6 +83,11 @@ impl Marketplace {
         if amount <= 0 || amount > available {
             panic_with_error!(&env, Error::InsufficientAmount);
         }
+
+        // Transfer payment from buyer to seller
+        let payment_amount = (amount * offer.price_per_tonne) / 1000;
+        let token_client = soroban_sdk::token::Client::new(&env, &offer.currency);
+        token_client.transfer(&buyer, &offer.seller, &payment_amount);
 
         let credit_registry = storage::read_credit_registry(&env);
         let client = CreditRegistryClient::new(&env, &credit_registry);
