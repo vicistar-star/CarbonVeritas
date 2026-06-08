@@ -1,0 +1,204 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CreditStatus {
+  PENDING
+  ACTIVE
+  RETIRED
+  REJECTED
+  BRIDGED
+}
+
+enum OfferStatus {
+  ACTIVE
+  FILLED
+  CANCELLED
+  EXPIRED
+}
+
+enum VerifierStatus {
+  PENDING
+  ACTIVE
+  SLASHED
+  UNREGISTERED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  stellarPub   String   @unique
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  issuedCredits   Credit[]      @relation("Issuer")
+  ownedCredits    Credit[]      @relation("Owner")
+  verifierRecords Verifier[]
+  trades          Trade[]
+  webhooks        Webhook[]
+  certificates    Certificate[]
+
+  @@index([stellarPub])
+}
+
+model Credit {
+  id                    String       @id @default(cuid())
+  creditId              Int          @unique
+  projectId             String
+  methodology           String
+  vintageStart          DateTime
+  vintageEnd            DateTime
+  tonnes                Float
+  geography             String
+  serialPrefix          String
+  sdgFlags              Int          @default(0)
+  permanenceRating      Int
+  bufferContributionPct Int
+  additionalityType     Int
+  ipfsHash              String
+  status                CreditStatus @default(PENDING)
+  tokenId               String?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  issuerId   String
+  issuer     User     @relation("Issuer", fields: [issuerId], references: [id])
+  ownerId    String
+  owner      User     @relation("Owner", fields: [ownerId], references: [id])
+
+  approvals  Approval[]
+  offers     Offer[]
+  retirements Retirement[]
+  trades     Trade[]
+
+  @@index([status])
+  @@index([methodology])
+  @@index([geography])
+  @@index([issuerId])
+  @@index([ownerId])
+  @@index([creditId])
+}
+
+model Approval {
+  id        String   @id @default(cuid())
+  creditId  String
+  verifierId String
+  approved  Boolean
+  comments  String?
+  createdAt DateTime @default(now())
+
+  credit   Credit @relation(fields: [creditId], references: [id])
+  verifier User   @relation(fields: [verifierId], references: [id])
+
+  @@index([creditId])
+  @@index([verifierId])
+}
+
+model Verifier {
+  id        String         @id @default(cuid())
+  userId    String
+  status    VerifierStatus @default(PENDING)
+  stake     Float          @default(0)
+  reputation Int           @default(0)
+  heartbeatAt DateTime?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+}
+
+model Offer {
+  id             String      @id @default(cuid())
+  offerId        Int         @unique
+  creditId       String
+  sellerId       String
+  pricePerTonne  Float
+  amount         Float
+  amountFilled   Float       @default(0)
+  currency       String
+  status         OfferStatus @default(ACTIVE)
+  expiresAt      DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  credit Credit @relation(fields: [creditId], references: [id])
+  seller User   @relation(fields: [sellerId], references: [id])
+
+  @@index([status])
+  @@index([sellerId])
+  @@index([creditId])
+}
+
+model Trade {
+  id        String   @id @default(cuid())
+  offerId   String
+  buyerId   String
+  amount    Float
+  totalPrice Float
+  createdAt DateTime @default(now())
+
+  offer  Offer @relation(fields: [offerId], references: [id])
+  buyer  User  @relation(fields: [buyerId], references: [id])
+  credit Credit @relation(fields: [creditId], references: [id])
+  creditId String
+
+  @@index([buyerId])
+  @@index([offerId])
+}
+
+model Retirement {
+  id               String   @id @default(cuid())
+  creditId         String
+  retiredById      String
+  beneficiary      String
+  reason           String
+  accountingPeriod String
+  tonnesRetired    Float
+  txHash           String
+  ledgerSequence   Int
+  timestamp        DateTime @default(now())
+  certificateHash  String?
+
+  credit Credit @relation(fields: [creditId], references: [id])
+
+  @@index([creditId])
+  @@index([beneficiary])
+}
+
+model Certificate {
+  id             String   @id @default(cuid())
+  userId         String
+  creditId       String
+  txHash         String?
+  metadata       Json
+  pdfUrl         String?
+  certificateHash String?
+  createdAt      DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([certificateHash])
+}
+
+model Webhook {
+  id        String   @id @default(cuid())
+  userId    String
+  url       String
+  secret    String
+  events    String[]
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
