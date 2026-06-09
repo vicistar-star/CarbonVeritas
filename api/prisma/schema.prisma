@@ -38,6 +38,8 @@ model User {
   issuedCredits   Credit[]      @relation("Issuer")
   ownedCredits    Credit[]      @relation("Owner")
   verifierRecords Verifier[]
+  approvals       Approval[]
+  offers          Offer[]
   trades          Trade[]
   webhooks        Webhook[]
   certificates    Certificate[]
@@ -129,6 +131,7 @@ model Offer {
   updatedAt      DateTime    @updatedAt
 
   credit Credit @relation(fields: [creditId], references: [id])
+  trades Trade[]
   seller User   @relation(fields: [sellerId], references: [id])
 
   @@index([status])

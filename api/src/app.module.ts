@@ -10,6 +10,7 @@ import { AuthModule } from './auth/auth.module';
 import { StellarModule } from './stellar/stellar.module';
 import { IpfsModule } from './ipfs/ipfs.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { CreditsModule } from './credits/credits.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { PrismaModule } from './prisma/prisma.module';
     AuthModule,
     StellarModule,
     IpfsModule,
+    CreditsModule,
   ],
   controllers: [AppController],
   providers: [
