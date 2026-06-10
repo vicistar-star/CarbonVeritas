@@ -11,6 +11,9 @@ import { StellarModule } from './stellar/stellar.module';
 import { IpfsModule } from './ipfs/ipfs.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { CreditsModule } from './credits/credits.module';
+import { MarketplaceModule } from './marketplace/marketplace.module';
+import { RetirementModule } from './retirement/retirement.module';
+import { VerifiersModule } from './verifiers/verifiers.module';
 
 @Module({
   imports: [
@@ -23,6 +26,9 @@ import { CreditsModule } from './credits/credits.module';
     StellarModule,
     IpfsModule,
     CreditsModule,
+    MarketplaceModule,
+    RetirementModule,
+    VerifiersModule,
   ],
   controllers: [AppController],
   providers: [
