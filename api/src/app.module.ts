@@ -14,6 +14,9 @@ import { CreditsModule } from './credits/credits.module';
 import { MarketplaceModule } from './marketplace/marketplace.module';
 import { RetirementModule } from './retirement/retirement.module';
 import { VerifiersModule } from './verifiers/verifiers.module';
+import { CertificatesModule } from './certificates/certificates.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
+import { EventEmitterModule } from './events/event-emitter.module';
 
 @Module({
   imports: [
@@ -29,6 +32,9 @@ import { VerifiersModule } from './verifiers/verifiers.module';
     MarketplaceModule,
     RetirementModule,
     VerifiersModule,
+    CertificatesModule,
+    WebhooksModule,
+    EventEmitterModule,
   ],
   controllers: [AppController],
   providers: [

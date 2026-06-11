@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class StellarService {
@@ -170,5 +171,14 @@ export class StellarService {
     creditId: number,
   ): Promise<boolean> {
     return true;
+  }
+
+  async getCertificateHash(creditId: number): Promise<string> {
+    this.logger.log(`getCertificateHash: creditId=${creditId}`);
+    const hash = crypto
+      .createHash('sha256')
+      .update(`cert-${creditId}-${Date.now()}`)
+      .digest('hex');
+    return hash;
   }
 }
