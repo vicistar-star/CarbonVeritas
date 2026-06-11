@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: 'Helvetica Neue', Arial, sans-serif; margin: 40px; color: #1a1a2e; }
+    .header { text-align: center; border-bottom: 3px solid #2ecc71; padding-bottom: 20px; margin-bottom: 30px; }
+    .header h1 { color: #2ecc71; margin: 0; font-size: 28px; }
+    .header h2 { color: #555; margin: 5px 0 0; font-weight: 400; font-size: 16px; }
+    .certificate-id { text-align: center; font-size: 14px; color: #888; margin-bottom: 30px; }
+    .section { margin-bottom: 25px; }
+    .section h3 { color: #2ecc71; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
+    table { width: 100%; border-collapse: collapse; }
+    td { padding: 8px 12px; border-bottom: 1px solid #eee; }
+    td.label { font-weight: 600; color: #555; width: 200px; }
+    .qr-code { text-align: center; margin: 30px 0; }
+    .qr-code img { width: 150px; height: 150px; }
+    .footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 12px; color: #aaa; }
+    .embedded-xml { display: none; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>CarbonVeritas</h1>
+    <h2>Carbon Credit Retirement Certificate</h2>
+  </div>
+  <div class="certificate-id">Certificate #{{certificateId}}</div>
+
+  <div class="section">
+    <h3>Retirement Details</h3>
+    <table>
+      <tr><td class="label">Beneficiary</td><td>{{beneficiary}}</td></tr>
+      <tr><td class="label">Reason</td><td>{{reason}}</td></tr>
+      <tr><td class="label">Accounting Period</td><td>{{accountingPeriod}}</td></tr>
+      <tr><td class="label">Tonnes Retired</td><td>{{tonnesRetired}} tCO₂e</td></tr>
+      <tr><td class="label">Retirement Date</td><td>{{retirementDate}}</td></tr>
+    </table>
+  </div>
+
+  <div class="section">
+    <h3>Credit Details</h3>
+    <table>
+      <tr><td class="label">Project ID</td><td>{{projectId}}</td></tr>
+      <tr><td class="label">Methodology</td><td>{{methodology}}</td></tr>
+      <tr><td class="label">Geography</td><td>{{geography}}</td></tr>
+      <tr><td class="label">Vintage Range</td><td>{{vintageStart}} – {{vintageEnd}}</td></tr>
+      <tr><td class="label">Total Tonnes</td><td>{{totalTonnes}} tCO₂e</td></tr>
+      <tr><td class="label">Serial Prefix</td><td>{{serialPrefix}}</td></tr>
+    </table>
+  </div>
+
+  <div class="section">
+    <h3>On-Chain Verification</h3>
+    <table>
+      <tr><td class="label">Transaction Hash</td><td style="font-family: monospace; font-size: 12px;">{{txHash}}</td></tr>
+      <tr><td class="label">Ledger Sequence</td><td>{{ledgerSequence}}</td></tr>
+      <tr><td class="label">Certificate Hash</td><td style="font-family: monospace; font-size: 12px;">{{certificateHash}}</td></tr>
+    </table>
+  </div>
+
+  <div class="qr-code">
+    <img src="{{qrCodeDataUri}}" alt="QR Code" />
+    <p style="font-size: 12px; color: #888;">Scan to verify on Stellar blockchain</p>
+  </div>
+
+  <div class="footer">
+    <p>CarbonVeritas Protocol — carbonveritas.io</p>
+    <p>This certificate is verifiable on-chain. Verify at carbonveritas.io/certificates/{{certificateId}}</p>
+  </div>
+
+  <div class="embedded-xml">
+    <carbonveritas-certificate>
+      <version>1.0</version>
+      <certificateId>{{certificateId}}</certificateId>
+      <beneficiary>{{beneficiary}}</beneficiary>
+      <reason>{{reason}}</reason>
+      <accountingPeriod>{{accountingPeriod}}</accountingPeriod>
+      <tonnesRetired>{{tonnesRetired}}</tonnesRetired>
+      <retirementDate>{{retirementDate}}</retirementDate>
+      <credit>
+        <projectId>{{projectId}}</projectId>
+        <methodology>{{methodology}}</methodology>
+        <geography>{{geography}}</geography>
+        <vintageStart>{{vintageStart}}</vintageStart>
+        <vintageEnd>{{vintageEnd}}</vintageEnd>
+        <totalTonnes>{{totalTonnes}}</totalTonnes>
+        <serialPrefix>{{serialPrefix}}</serialPrefix>
+      </credit>
+      <onchain>
+        <txHash>{{txHash}}</txHash>
+        <ledgerSequence>{{ledgerSequence}}</ledgerSequence>
+        <certificateHash>{{certificateHash}}</certificateHash>
+      </onchain>
+    </carbonveritas-certificate>
+  </div>
+</body>
+</html>
