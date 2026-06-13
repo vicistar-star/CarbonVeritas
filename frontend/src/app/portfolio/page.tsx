@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useWallet } from '@/hooks/use-wallet';
-import { getOwnedCredits, getListings, getOwnedCertificates } from '@/lib/api';
+import { getOwnedCredits, getListings, getOwnedCertificates, getMarketplaceStats } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -15,7 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Loader2, Trophy, AlertCircle, FileText, ExternalLink, Search } from 'lucide-react';
+import { Loader2, Trophy, AlertCircle, FileText, ExternalLink, Search, DollarSign } from 'lucide-react';
 import type { Credit, Offer, Certificate } from '@/types';
 
 export default function PortfolioPage() {
@@ -26,6 +26,12 @@ export default function PortfolioPage() {
   const [loading, setLoading] = useState(true);
   const [selectedCredit, setSelectedCredit] = useState<Credit | null>(null);
   const [search, setSearch] = useState('');
+  const [vwap, setVwap] = useState(0);
+
+  const totalValue = useMemo(
+    () => credits.reduce((sum, c) => sum + c.tonnes * vwap, 0),
+    [credits, vwap],
+  );
 
   useEffect(() => {
     if (!wallet?.isConnected) {
@@ -36,10 +42,12 @@ export default function PortfolioPage() {
       getOwnedCredits().catch(() => []),
       getOwnedCertificates().catch(() => []),
       getListings().catch(() => [] as unknown as { data: Offer[] }),
+      getMarketplaceStats().catch(() => ({ vwap: 0 }) as { vwap: number }),
     ])
-      .then(([creditsData, certsData, offersData]) => {
+      .then(([creditsData, certsData, offersData, statsData]) => {
         setCredits(creditsData);
         setCertificates(certsData);
+        setVwap(statsData.vwap ?? 0);
 
         const offersList = Array.isArray(offersData)
           ? offersData
@@ -106,7 +114,7 @@ export default function PortfolioPage() {
         </TabsList>
 
         <TabsContent value="credits" className="space-y-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between gap-4">
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -116,6 +124,15 @@ export default function PortfolioPage() {
                 className="pl-9"
               />
             </div>
+            {vwap > 0 && (
+              <div className="text-right">
+                <p className="text-xs text-muted-foreground">Estimated Portfolio Value</p>
+                <p className="text-lg font-bold flex items-center gap-1">
+                  <DollarSign className="h-4 w-4 text-green-500" />
+                  {totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC
+                </p>
+              </div>
+            )}
           </div>
 
           {filteredCredits.length === 0 ? (
@@ -135,6 +152,7 @@ export default function PortfolioPage() {
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Geography</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Vintage</th>
                     <th className="text-right px-4 py-3 font-medium text-muted-foreground">Tonnes</th>
+                    <th className="text-right px-4 py-3 font-medium text-muted-foreground">Current Value</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
                     <th className="text-center px-4 py-3 font-medium text-muted-foreground">Provenance</th>
                   </tr>
@@ -151,6 +169,11 @@ export default function PortfolioPage() {
                         {credit.vintageStart} – {credit.vintageEnd}
                       </td>
                       <td className="px-4 py-3 text-right font-mono">{credit.tonnes}</td>
+                      <td className="px-4 py-3 text-right font-mono text-sm">
+                        {vwap > 0
+                          ? `${(credit.tonnes * vwap).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                          : '-'}
+                      </td>
                       <td className="px-4 py-3">
                         <Badge
                           variant={

@@ -119,6 +119,12 @@ export interface MarketplaceStats {
   totalListings: number;
 }
 
+export interface PricePoint {
+  date: string;
+  price: number;
+  volume: number;
+}
+
 export interface ProtocolStats {
   totalCredits: number;
   totalTonnesRetired: number;

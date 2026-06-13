@@ -166,6 +166,14 @@ export async function registerVerifier(): Promise<Record<string, unknown>> {
   return res.data;
 }
 
+// Price History
+export async function getPriceHistory(
+  range: '30d' | '90d' | '1y' = '30d',
+): Promise<{ data: import('@/types').PricePoint[] }> {
+  const res = await getApi().get('/marketplace/price-history', { params: { range } });
+  return res.data;
+}
+
 // Protocol Stats
 export async function getProtocolStats(): Promise<ProtocolStats> {
   const [creditsRes, verifiersRes] = await Promise.allSettled([

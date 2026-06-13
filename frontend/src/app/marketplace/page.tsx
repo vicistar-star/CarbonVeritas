@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useWallet } from '@/hooks/use-wallet';
-import { getMarketplaceStats, getOwnedCredits, createOffer } from '@/lib/api';
+import { getMarketplaceStats, getOwnedCredits, createOffer, getPriceHistory } from '@/lib/api';
 import { MarketplaceOrderbook } from '@/components/marketplace-orderbook';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,8 +16,17 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { TrendingUp, BarChart3, PieChart, Loader2, TrendingDown, Plus } from 'lucide-react';
-import type { MarketplaceStats, Credit } from '@/types';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
+import { TrendingUp, BarChart3, PieChart, Loader2, TrendingDown, Plus, Calendar } from 'lucide-react';
+import type { MarketplaceStats, Credit, PricePoint } from '@/types';
 
 export default function MarketplacePage() {
   const { wallet } = useWallet();
@@ -31,6 +40,9 @@ export default function MarketplacePage() {
   const [currency, setCurrency] = useState('USDC');
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [priceHistory, setPriceHistory] = useState<PricePoint[]>([]);
+  const [priceRange, setPriceRange] = useState<'30d' | '90d' | '1y'>('30d');
+  const [chartLoading, setChartLoading] = useState(true);
 
   useEffect(() => {
     getMarketplaceStats()
@@ -38,6 +50,14 @@ export default function MarketplacePage() {
       .catch(() => {})
       .finally(() => setStatsLoading(false));
   }, []);
+
+  useEffect(() => {
+    setChartLoading(true);
+    getPriceHistory(priceRange)
+      .then((res) => setPriceHistory(res.data ?? []))
+      .catch(() => setPriceHistory([]))
+      .finally(() => setChartLoading(false));
+  }, [priceRange]);
 
   const handleOpenCreateOffer = async () => {
     if (!wallet?.isConnected) return;
@@ -143,6 +163,84 @@ export default function MarketplacePage() {
           })}
         </div>
       )}
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Price History</CardTitle>
+            <div className="flex items-center gap-1">
+              {(['30d', '90d', '1y'] as const).map((r) => (
+                <Button
+                  key={r}
+                  variant={priceRange === r ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setPriceRange(r)}
+                >
+                  <Calendar className="h-3 w-3 mr-1" />
+                  {r}
+                </Button>
+              ))}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {chartLoading ? (
+            <div className="h-64 flex items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : priceHistory.length === 0 ? (
+            <div className="h-64 flex items-center justify-center text-sm text-muted-foreground">
+              No price data available yet.
+            </div>
+          ) : (
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={priceHistory}>
+                  <defs>
+                    <linearGradient id="priceGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(142, 76%, 36%)" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="hsl(142, 76%, 36%)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 11 }}
+                    tickFormatter={(v) => {
+                      const d = new Date(v);
+                      return `${d.getMonth() + 1}/${d.getDate()}`;
+                    }}
+                    className="text-muted-foreground"
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11 }}
+                    tickFormatter={(v) => `${v.toFixed(1)}`}
+                    className="text-muted-foreground"
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--background))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                    }}
+                    labelFormatter={(v) => new Date(String(v)).toLocaleDateString()}
+                    formatter={(value) => [`${Number(value).toFixed(2)} USDC`, 'Price']}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="price"
+                    stroke="hsl(142, 76%, 36%)"
+                    fill="url(#priceGradient)"
+                    strokeWidth={2}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

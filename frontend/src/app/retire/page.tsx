@@ -15,7 +15,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Flame, Loader2, AlertCircle, CheckCircle, ExternalLink, FileText } from 'lucide-react';
+import { CertificatePreview } from '@/components/certificate-preview';
+import { Flame, Loader2, AlertCircle, CheckCircle, ExternalLink, FileText, Download } from 'lucide-react';
 import type { Credit } from '@/types';
 
 export default function RetirePage() {
@@ -29,7 +30,21 @@ export default function RetirePage() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [retiring, setRetiring] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [retired, setRetired] = useState<{ creditId: number; certificateHash?: string } | null>(null);
+  const [retired, setRetired] = useState<{
+    creditId: number;
+    certificateHash?: string;
+  } | null>(null);
+  const [retiredCertificate, setRetiredCertificate] = useState<import('@/types').Certificate | null>(null);
+
+  useEffect(() => {
+    if (retired) {
+      getCertificate(retired.creditId)
+        .then((data) => setRetiredCertificate(data as unknown as import('@/types').Certificate))
+        .catch(() => setRetiredCertificate(null));
+    } else {
+      setRetiredCertificate(null);
+    }
+  }, [retired]);
 
   useEffect(() => {
     if (wallet?.isConnected) {
@@ -62,7 +77,10 @@ export default function RetirePage() {
           reason,
           accountingPeriod: accountingPeriod || new Date().toISOString().slice(0, 7),
         });
-        setRetired({ creditId, certificateHash: result.certificateHash });
+        setRetired({
+          creditId,
+          certificateHash: result.certificateHash,
+        });
       }
       setShowConfirm(false);
       setSelectedIds(new Set());
@@ -105,29 +123,48 @@ export default function RetirePage() {
       </div>
 
       {retired ? (
-        <Card>
-          <CardContent className="py-8 text-center">
-            <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
-            <h2 className="text-xl font-bold mb-2">Successfully Retired</h2>
-            <p className="text-muted-foreground mb-4">
-              Credit #{retired.creditId} has been permanently retired.
-            </p>
-            {retired.certificateHash && (
-              <div className="inline-flex items-center gap-2 text-sm text-muted-foreground bg-muted px-3 py-1.5 rounded-md mb-4">
-                <FileText className="h-4 w-4" />
-                Certificate: {retired.certificateHash.slice(0, 16)}...
+        <div className="space-y-6">
+          <Card>
+            <CardContent className="py-8 text-center">
+              <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
+              <h2 className="text-xl font-bold mb-2">Successfully Retired</h2>
+              <p className="text-muted-foreground mb-4">
+                Credit #{retired.creditId} has been permanently retired on the Stellar blockchain.
+              </p>
+              {retired.certificateHash && (
+                <div className="inline-flex items-center gap-2 text-sm text-muted-foreground bg-muted px-3 py-1.5 rounded-md mb-4">
+                  <FileText className="h-4 w-4" />
+                  Certificate Hash: {retired.certificateHash.slice(0, 16)}...
+                </div>
+              )}
+              <div className="flex justify-center gap-3">
+                <Button onClick={() => setRetired(null)}>Retire More</Button>
+                <Button variant="outline" asChild>
+                  <a href="/portfolio">
+                    <ExternalLink className="h-4 w-4 mr-2" /> View Portfolio
+                  </a>
+                </Button>
+                {retiredCertificate?.pdfUrl && (
+                  <Button variant="secondary" asChild>
+                    <a href={retiredCertificate.pdfUrl} target="_blank" rel="noreferrer">
+                      <Download className="h-4 w-4 mr-2" /> Download Certificate
+                    </a>
+                  </Button>
+                )}
               </div>
-            )}
-            <div className="flex justify-center gap-3">
-              <Button onClick={() => setRetired(null)}>Retire More</Button>
-              <Button variant="outline" asChild>
-                <a href="/portfolio">
-                  <ExternalLink className="h-4 w-4 mr-2" /> View Portfolio
-                </a>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+          {retiredCertificate && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Certificate Preview</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CertificatePreview certificate={retiredCertificate} />
+              </CardContent>
+            </Card>
+          )}
+        </div>
       ) : (
         <>
           <Card>
