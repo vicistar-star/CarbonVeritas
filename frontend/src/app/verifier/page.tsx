@@ -26,6 +26,9 @@ import {
   Clock,
   User,
   Star,
+  ChevronDown,
+  ChevronRight,
+
 } from 'lucide-react';
 import type { Credit, Verifier } from '@/types';
 
@@ -41,6 +44,7 @@ export default function VerifierPage() {
   const [showConfirm, setShowConfirm] = useState<{ id: number; action: 'approve' | 'reject' } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [heartbeatLoading, setHeartbeatLoading] = useState(false);
+  const [expandedCredit, setExpandedCredit] = useState<string | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -187,6 +191,7 @@ export default function VerifierPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/50">
+                    <th className="w-8 px-2 py-3"></th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">ID</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Project</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Methodology</th>
@@ -197,57 +202,128 @@ export default function VerifierPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {pendingCredits.map((credit) => (
-                    <tr key={credit.id} className="border-b hover:bg-muted/30 transition-colors">
-                      <td className="px-4 py-3 font-mono">#{credit.creditId}</td>
-                      <td className="px-4 py-3 font-medium">{credit.projectId}</td>
-                      <td className="px-4 py-3">
-                        <Badge variant="outline">{credit.methodology}</Badge>
-                      </td>
-                      <td className="px-4 py-3">{credit.geography}</td>
-                      <td className="px-4 py-3 text-right font-mono">{credit.tonnes}</td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {new Date(credit.createdAt).toLocaleDateString()}
-                        </div>
-                        {expired(credit) && (
-                          <Badge variant="destructive" className="text-[10px] mt-1">Expired</Badge>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-center gap-2">
+                  {pendingCredits.map((credit) => {
+                    const isExpanded = expandedCredit === credit.id;
+                    return (
+                      <tr key={credit.id} className="border-b hover:bg-muted/30 transition-colors">
+                        <td className="px-2 py-3">
                           <Button
-                            size="sm"
-                            className="h-8"
-                            onClick={() => {
-                              setSelectedCredit(credit);
-                              setShowConfirm({ id: credit.creditId, action: 'approve' });
-                            }}
-                            disabled={!isVerifier}
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => setExpandedCredit(isExpanded ? null : credit.id)}
                           >
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Approve
+                            {isExpanded ? (
+                              <ChevronDown className="h-3 w-3" />
+                            ) : (
+                              <ChevronRight className="h-3 w-3" />
+                            )}
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            className="h-8"
-                            onClick={() => {
-                              setSelectedCredit(credit);
-                              setShowConfirm({ id: credit.creditId, action: 'reject' });
-                            }}
-                            disabled={!isVerifier}
-                          >
-                            <XCircle className="h-3 w-3 mr-1" />
-                            Reject
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="px-4 py-3 font-mono">#{credit.creditId}</td>
+                        <td className="px-4 py-3 font-medium">{credit.projectId}</td>
+                        <td className="px-4 py-3">
+                          <Badge variant="outline">{credit.methodology}</Badge>
+                        </td>
+                        <td className="px-4 py-3">{credit.geography}</td>
+                        <td className="px-4 py-3 text-right font-mono">{credit.tonnes}</td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {new Date(credit.createdAt).toLocaleDateString()}
+                          </div>
+                          {expired(credit) && (
+                            <Badge variant="destructive" className="text-[10px] mt-1">Expired</Badge>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-center gap-2">
+                            <Button
+                              size="sm"
+                              className="h-8"
+                              onClick={() => {
+                                setSelectedCredit(credit);
+                                setShowConfirm({ id: credit.creditId, action: 'approve' });
+                              }}
+                              disabled={!isVerifier}
+                            >
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              className="h-8"
+                              onClick={() => {
+                                setSelectedCredit(credit);
+                                setShowConfirm({ id: credit.creditId, action: 'reject' });
+                              }}
+                              disabled={!isVerifier}
+                            >
+                              <XCircle className="h-3 w-3 mr-1" />
+                              Reject
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
+              {expandedCredit && (() => {
+                const credit = pendingCredits.find((c) => c.id === expandedCredit);
+                if (!credit) return null;
+                return (
+                  <div className="border-t bg-muted/20 px-6 py-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div>
+                        <span className="text-muted-foreground text-xs">Serial Prefix</span>
+                        <p className="font-mono text-xs mt-0.5">{credit.serialPrefix}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground text-xs">Vintage Range</span>
+                        <p className="mt-0.5">{credit.vintageStart} – {credit.vintageEnd}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground text-xs">SDG Flags</span>
+                        <p className="mt-0.5">{credit.sdgFlags}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground text-xs">Permanence</span>
+                        <p className="mt-0.5">{credit.permanenceRating}/10</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground text-xs">Buffer Contribution</span>
+                        <p className="mt-0.5">{credit.bufferContributionPct}%</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground text-xs">Additionality Type</span>
+                        <p className="mt-0.5">{credit.additionalityType}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground text-xs">Issuer</span>
+                        <p className="font-mono text-xs mt-0.5">{credit.issuer?.stellarPub?.slice(0, 8)}...</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground text-xs">IPFS</span>
+                        <p className="font-mono text-xs mt-0.5 truncate max-w-[140px]">{credit.ipfsHash?.slice(0, 16)}...</p>
+                      </div>
+                    </div>
+                    {credit.approvals && credit.approvals.length > 0 && (
+                      <div className="mt-3 pt-3 border-t">
+                        <span className="text-xs text-muted-foreground font-medium">Existing Approvals</span>
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          {credit.approvals.map((a) => (
+                            <Badge key={a.id} variant={a.approved ? 'default' : 'destructive'} className="text-[10px]">
+                              {a.verifier.stellarPub.slice(0, 6)}... {a.approved ? '✓' : '✗'}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           )}
         </TabsContent>
@@ -281,21 +357,46 @@ export default function VerifierPage() {
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div>
                         <span className="text-muted-foreground">Stake</span>
-                        <p className="font-mono font-medium">{v.stake.toLocaleString()}</p>
+                        <p className="font-mono font-medium">{v.stake.toLocaleString()} XLM</p>
                       </div>
                       <div>
-                        <div className="flex items-center gap-1 text-muted-foreground">
+                        <div className="flex items-center gap-1 text-muted-foreground mb-1">
                           <Star className="h-3 w-3" />
                           <span>Reputation</span>
                         </div>
-                        <p className="font-medium">{v.reputation}</p>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all"
+                              style={{
+                                width: `${Math.min((v.reputation / 100) * 100, 100)}%`,
+                                backgroundColor:
+                                  v.reputation >= 80
+                                    ? 'hsl(142, 76%, 36%)'
+                                    : v.reputation >= 50
+                                      ? 'hsl(38, 92%, 50%)'
+                                      : 'hsl(0, 84%, 60%)',
+                              }}
+                            />
+                          </div>
+                          <span className="font-medium text-xs w-6 text-right">{v.reputation}</span>
+                        </div>
                       </div>
                     </div>
-                    {v.heartbeatAt && (
-                      <p className="text-xs text-muted-foreground mt-2">
-                        Last heartbeat: {new Date(v.heartbeatAt).toLocaleDateString()}
-                      </p>
-                    )}
+                    <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground mt-2 pt-2 border-t">
+                      <div className="flex items-center gap-1">
+                        <CheckCircle className="h-3 w-3 text-green-500" />
+                        <span>{v.reputation} approvals</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Heart className={`h-3 w-3 ${v.heartbeatAt ? 'text-green-500' : 'text-muted-foreground'}`} />
+                        <span>
+                          {v.heartbeatAt
+                            ? `${Math.floor((Date.now() - new Date(v.heartbeatAt).getTime()) / 3600000)}h ago`
+                            : 'No heartbeat'}
+                        </span>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               ))}
