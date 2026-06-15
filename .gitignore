@@ -12,3 +12,4 @@ target/
 *.log
 .DS_Store
 coverage/
+Plan.md
