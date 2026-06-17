@@ -271,7 +271,7 @@ export default function MarketplacePage() {
                 </SelectTrigger>
                 <SelectContent>
                   {ownedCredits.length === 0 ? (
-                    <SelectItem value="" disabled>No active credits available</SelectItem>
+                    <SelectItem value="none" disabled>No active credits available</SelectItem>
                   ) : (
                     ownedCredits.map((c) => (
                       <SelectItem key={c.id} value={String(c.creditId)}>

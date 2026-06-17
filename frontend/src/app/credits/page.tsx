@@ -64,15 +64,23 @@ export default function CreditsPage() {
             />
           </div>
           <Select
-            value={filters.status ?? ''}
-            onValueChange={(v) => setFilters({ ...filters, status: v || '' })}
+            value={filters.status ?? 'all'}
+            onValueChange={(v) => {
+              const next = { ...filters };
+              if (v === 'all') {
+                delete next.status;
+              } else {
+                next.status = v;
+              }
+              setFilters(next);
+            }}
           >
             <SelectTrigger className="w-32">
               <Filter className="h-4 w-4 mr-1" />
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All</SelectItem>
+              <SelectItem value="all">All</SelectItem>
               <SelectItem value="PENDING">Pending</SelectItem>
               <SelectItem value="ACTIVE">Active</SelectItem>
               <SelectItem value="RETIRED">Retired</SelectItem>
