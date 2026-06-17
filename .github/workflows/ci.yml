@@ -1,0 +1,202 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_TOOLCHAIN: "1.75.0"
+  NODE_VERSION: "20"
+
+jobs:
+  contracts:
+    name: Contracts (Cargo)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: clippy, rustfmt
+
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            contracts/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('contracts/Cargo.lock') }}
+          restore-keys: |
+            cargo-${{ runner.os }}-
+
+      - name: Lint (clippy)
+        run: cargo clippy --workspace -- -D warnings
+        working-directory: contracts
+
+      - name: Build
+        run: cargo build --workspace
+        working-directory: contracts
+
+      - name: Test
+        run: cargo test --workspace --verbose
+        working-directory: contracts
+
+  api:
+    name: API (NestJS)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: carbonveritas_test
+          POSTGRES_USER: carbonveritas
+          POSTGRES_PASSWORD: secret
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready -U carbonveritas -d carbonveritas_test
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: api
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+        working-directory: api
+
+      - name: Lint
+        run: npm run lint
+        working-directory: api
+
+      - name: Build
+        run: npm run build
+        working-directory: api
+
+      - name: Run database migrations
+        run: npx prisma migrate deploy
+        working-directory: api
+        env:
+          DATABASE_URL: postgresql://carbonveritas:secret@localhost:5432/carbonveritas_test
+
+      - name: Test
+        run: npm test -- --ci --coverage
+        working-directory: api
+        env:
+          DATABASE_URL: postgresql://carbonveritas:secret@localhost:5432/carbonveritas_test
+          JWT_SECRET: ci-jwt-secret
+          STELLAR_NETWORK: testnet
+          PINATA_API_KEY: ""
+          PINATA_API_SECRET: ""
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-coverage
+          path: api/coverage/
+
+  frontend:
+    name: Frontend (Next.js)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Lint
+        run: npm run lint
+        working-directory: frontend
+
+      - name: Build
+        run: npm run build
+        working-directory: frontend
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: frontend
+
+      - name: Test (Playwright)
+        run: npm test
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:3000
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-playwright-report
+          path: frontend/playwright-report/
+
+  indexer:
+    name: Indexer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: indexer
+
+      - name: Lint
+        run: npm run lint
+        working-directory: indexer
+
+      - name: Build
+        run: npm run build
+        working-directory: indexer
+
+      - name: Test
+        run: npm test
+        working-directory: indexer
+
+  turbo:
+    name: Workspace (Turbo)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build

@@ -1,0 +1,159 @@
+name: Deploy to Testnet
+
+on:
+  push:
+    branches: [main]
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY_PREFIX: carbonveritas
+  STELLAR_NETWORK: testnet
+
+jobs:
+  contracts:
+    name: Build & Deploy Contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.75.0
+          targets: wasm32-unknown-unknown
+
+      - name: Install Soroban CLI
+        run: |
+          cargo install soroban-cli --locked --version 20.4.0
+
+      - name: Build contracts
+        run: cargo build --workspace --target wasm32-unknown-unknown --release
+        working-directory: contracts
+
+      - name: Deploy contracts to testnet
+        run: |
+          for contract in credit-registry retirement-tracker marketplace merkle-bridge revenue-split verifier-stake; do
+            wasm="target/wasm32-unknown-unknown/release/${contract//-/_}.wasm"
+            if [ -f "$wasm" ]; then
+              soroban contract deploy \
+                --wasm "$wasm" \
+                --source "${{ secrets.STELLAR_ADMIN_SECRET_KEY }}" \
+                --rpc-url https://soroban-testnet.stellar.org \
+                --network-passphrase "Test SDF Network ; September 2015" \
+                >> deployed-addresses.txt
+            fi
+          done
+          cat deployed-addresses.txt
+        working-directory: contracts
+
+      - name: Upload deployed addresses
+        uses: actions/upload-artifact@v4
+        with:
+          name: contract-addresses
+          path: contracts/deployed-addresses.txt
+
+  docker:
+    name: Build & Push Docker Images
+    runs-on: ubuntu-latest
+    needs: [contracts]
+    strategy:
+      matrix:
+        service: [api, frontend, indexer]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_PREFIX/${{ matrix.service }}:$IMAGE_TAG ./${{ matrix.service }}
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY_PREFIX/${{ matrix.service }}:$IMAGE_TAG \
+            $ECR_REGISTRY/$ECR_REPOSITORY_PREFIX/${{ matrix.service }}:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY_PREFIX/${{ matrix.service }}:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY_PREFIX/${{ matrix.service }}:latest
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY_PREFIX/${{ matrix.service }}:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+  deploy:
+    name: Deploy to ECS
+    runs-on: ubuntu-latest
+    needs: [docker]
+    strategy:
+      matrix:
+        service: [api, frontend, indexer]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download contract addresses
+        uses: actions/download-artifact@v4
+        with:
+          name: contract-addresses
+
+      - name: Deploy to Amazon ECS
+        run: |
+          aws ecs update-service \
+            --cluster carbonveritas-testnet \
+            --service ${{ matrix.service }} \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Wait for service stable
+        run: |
+          aws ecs wait services-stable \
+            --cluster carbonveritas-testnet \
+            --services ${{ matrix.service }} \
+            --region ${{ env.AWS_REGION }}
+
+  smoke-test:
+    name: Smoke Tests
+    runs-on: ubuntu-latest
+    needs: [deploy]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wait for API
+        run: |
+          for i in $(seq 1 30); do
+            curl -sf https://api.testnet.carbonveritas.io/health && break
+            sleep 10
+          done
+
+      - name: Health check
+        run: |
+          curl -sf https://api.testnet.carbonveritas.io/health
+          curl -sf https://app.testnet.carbonveritas.io/
+          curl -sf https://indexer.testnet.carbonveritas.io/health
+
+      - name: Run smoke tests
+        run: |
+          npx @carbonveritas/cli doctor --api https://api.testnet.carbonveritas.io
+
+      - name: Notify
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "channel": "#deployments",
+              "text": "✅ Testnet deployment complete (${{ github.sha }})"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_DEPLOY_WEBHOOK }}
