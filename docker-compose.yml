@@ -1,0 +1,121 @@
+version: "3.9"
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: carbonveritas_dev
+      POSTGRES_USER: carbonveritas
+      POSTGRES_PASSWORD: secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U carbonveritas -d carbonveritas_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging: *default-logging
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging: *default-logging
+
+  mailhog:
+    image: mailhog/mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    logging: *default-logging
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      PORT: "3000"
+      DATABASE_URL: postgresql://carbonveritas:secret@postgres:5432/carbonveritas_dev
+      REDIS_URL: redis://redis:6379
+      STELLAR_NETWORK: testnet
+      STELLAR_HORIZON_URL: https://horizon-testnet.stellar.org
+      STELLAR_SOROBAN_RPC: https://soroban-testnet.stellar.org
+      STELLAR_NETWORK_PASSPHRASE: "Test SDF Network ; September 2015"
+      JWT_SECRET: local-dev-jwt-secret-do-not-use-in-prod
+      JWT_EXPIRY: 24h
+      SEP10_HOME_DOMAIN: localhost:3000
+      PINATA_API_KEY: ""
+      PINATA_API_SECRET: ""
+      IPFS_GATEWAY: https://gateway.pinata.cloud/ipfs
+      PROTOCOL_FEE_BPS: "50"
+      VERIFIER_THRESHOLD: "2"
+      VERIFIER_QUORUM: "3"
+      APPROVAL_WINDOW_HOURS: "168"
+      CERT_SIGNING_KEY: ""
+      CERT_OUTPUT_DIR: /tmp/cv-certs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging: *default-logging
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: http://localhost:3000
+      NEXT_PUBLIC_STELLAR_NETWORK: testnet
+      NEXT_PUBLIC_STELLAR_HORIZON_URL: https://horizon-testnet.stellar.org
+    depends_on:
+      api:
+        condition: service_healthy
+    logging: *default-logging
+
+  indexer:
+    build:
+      context: ./indexer
+      dockerfile: Dockerfile
+    ports:
+      - "3002:3001"
+    environment:
+      NODE_ENV: production
+      STELLAR_RPC_URL: https://soroban-testnet.stellar.org
+      DATABASE_URL: postgresql://carbonveritas:secret@postgres:5432/carbonveritas_dev
+      INDEXER_PORT: "3001"
+      INDEXER_POLL_INTERVAL_MS: "5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *default-logging
+
+volumes:
+  pgdata:
+  redisdata:
