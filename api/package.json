@@ -7,6 +7,7 @@
     "build": "nest build",
     "lint": "eslint src --ext .ts",
     "test": "jest",
+    "test:coverage": "jest --coverage",
     "db:migrate": "npx prisma migrate dev",
     "db:seed": "npx ts-node prisma/seed.ts",
     "db:generate": "npx prisma generate"
