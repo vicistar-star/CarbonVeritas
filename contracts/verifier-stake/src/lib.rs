@@ -22,6 +22,9 @@ impl VerifierStake {
         env.storage().instance().set(&symbol_short!("asset"), &staking_asset);
     }
 
+    /// Register as a verifier by staking the minimum collateral.
+    /// Transfers MIN_STAKE_AMOUNT from the verifier to this contract.
+    /// Verifiers start with a reputation score of 100.
     pub fn register(env: Env, verifier: Address) -> bool {
         verifier.require_auth();
         if env.storage().instance().has(&verifier) {
@@ -65,11 +68,16 @@ impl VerifierStake {
         let client = token::Client::new(&env, &asset);
         client.transfer(&verifier, &env.current_contract_address(), &amount);
 
-        record.total_staked += amount;
+        record.total_staked = record.total_staked.checked_add(amount)
+            .unwrap_or_else(|| panic_with_error!(&env, Error::InvalidInput));
         env.storage().instance().set(&verifier, &record);
         true
     }
 
+    /// Slash a verifier's stake as a penalty for malicious behavior.
+    /// Reduces their total_staked and decrements reputation by 10 points
+    /// (using saturating_sub to prevent underflow). Only callable by admin.
+    /// Slashed funds remain in the contract as a disincentive pool.
     pub fn slash(env: Env, admin: Address, verifier: Address, amount: i128) -> bool {
         let stored_admin: Address = env.storage().instance().get(&symbol_short!("admin")).unwrap();
         admin.require_auth();
@@ -89,16 +97,17 @@ impl VerifierStake {
         if amount > record.total_staked {
             panic_with_error!(&env, Error::InsufficientStake);
         }
-        record.total_staked -= amount;
+        record.total_staked = record.total_staked.checked_sub(amount)
+            .unwrap_or_else(|| panic_with_error!(&env, Error::InsufficientStake));
         record.reputation_score = record.reputation_score.saturating_sub(10);
         env.storage().instance().set(&verifier, &record);
-        
-        // Slashed funds stay in contract or go to fee address? 
-        // For now, let's just keep them in the contract.
         
         true
     }
 
+    /// Unregister as a verifier and reclaim staked tokens.
+    /// Requires a cooldown period (COOLDOWN_PERIOD_SECONDS) from registration
+    /// to prevent flash-stake attacks. Transfers the full stake back to the verifier.
     pub fn unregister(env: Env, verifier: Address) -> bool {
         verifier.require_auth();
         let record: Verifier = env
