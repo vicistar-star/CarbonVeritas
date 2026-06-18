@@ -27,6 +27,10 @@ impl MerkleBridge {
         storage::write_credit_registry(&env, &credit_registry);
     }
 
+    /// Bridge a credit from a legacy registry onto Stellar.
+    /// Requires a valid Merkle inclusion proof against the registry's published root.
+    /// Prevents double-minting via the global deduplication check.
+    /// Calls CreditRegistry.mint_bridged to create the on-chain credit.
     pub fn bridge_in(
         env: Env,
         bridger: Address,
@@ -64,6 +68,8 @@ impl MerkleBridge {
         credit_id
     }
 
+    /// Bridge a Stellar credit back to the legacy registry (for retirement there).
+    /// Marks the credit as retired on Stellar to prevent double-counting.
     pub fn bridge_out(env: Env, owner: Address, credit_id: u64) -> bool {
         owner.require_auth();
         
@@ -81,6 +87,11 @@ impl MerkleBridge {
         true
     }
 
+    /// Standard Merkle inclusion proof verification using SHA-256.
+    /// Sorts sibling pairs lexicographically before hashing (required for
+    /// non-branching verification). Iterates from leaf to root, recomputing
+    /// the hash at each level. Returns true if the computed root matches.
+    /// Edge cases: empty proof returns leaf == root; supports arbitrary depth.
     pub fn verify_proof(
         env: Env,
         leaf: BytesN<32>,

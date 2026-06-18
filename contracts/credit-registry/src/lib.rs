@@ -20,6 +20,9 @@ pub struct CreditRegistry;
 
 #[contractimpl]
 impl CreditRegistry {
+    /// Submit a new carbon credit for verifier review.
+    /// Validates metadata, assigns a monotonically increasing ID, persists the record,
+    /// and emits a CreditSubmitted event. The credit starts in Pending status.
     pub fn submit_credit(
         env: Env,
         issuer: Address,
@@ -42,6 +45,11 @@ impl CreditRegistry {
         credit_id
     }
 
+    /// Record a verifier approval for a pending credit.
+    /// Once the approval count reaches verifier_threshold, the credit is automatically
+    /// minted with an Active status. The token ID is derived from sha256(credit_id).
+    /// Returns Some(token_id) on mint, None if the threshold is not yet met.
+    /// Reverts if the verifier already voted or if credit is not in Pending status.
     pub fn approve_and_mint(
         env: Env,
         verifier: Address,
@@ -80,6 +88,10 @@ impl CreditRegistry {
         None
     }
 
+    /// Record a verifier rejection for a pending credit.
+    /// If rejections exceed (quorum - threshold), the credit is permanently Rejected.
+    /// Returns true if the rejection threshold was met, false otherwise.
+    /// Reverts if the verifier already voted or if credit is not Pending.
     pub fn reject_credit(
         env: Env,
         verifier: Address,
@@ -150,6 +162,9 @@ impl CreditRegistry {
         storage::read_credits_by_owner(&env, &owner)
     }
 
+    /// Permanently retire a credit. Called only by the RetirementTracker contract
+    /// via cross-contract call. This is irreversible — once Retired, a credit
+    /// can never be transferred or reactivated.
     pub fn mark_retired(env: Env, credit_id: u64) {
         let mut credit = storage::read_credit(&env, credit_id);
         if credit.status != CreditStatus::Active {
@@ -159,6 +174,8 @@ impl CreditRegistry {
         storage::write_credit(&env, credit_id, &credit);
     }
 
+    /// Initialize the contract with admin and verifier configuration.
+    /// Threshold must be >= 1 and <= quorum. Called once at deployment.
     pub fn init(env: Env, admin: Address, threshold: u32, quorum: u32) {
         if threshold == 0 || quorum == 0 || threshold > quorum {
             panic_with_error!(&env, Error::InvalidInput);
@@ -215,6 +232,9 @@ impl CreditRegistry {
         storage::write_verifiers(&env, &new_list);
     }
 
+    /// Mint a credit directly via an authorized bridge contract (e.g. MerkleBridge).
+    /// Skips the verifier approval workflow since the credit was already verified
+    /// on the source registry. Only pre-authorized bridge addresses can call this.
     pub fn mint_bridged(
         env: Env,
         bridge: Address,

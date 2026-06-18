@@ -21,6 +21,10 @@ impl RevenueSplit {
         env.storage().instance().set(&symbol_short!("fee_addr"), &protocol_fee_address);
     }
 
+    /// Configure revenue split beneficiaries for a project.
+    /// Each beneficiary gets a share in basis points (bps). The sum of all
+    /// shares must equal exactly 10000 (100.00%) to ensure complete distribution.
+    /// Protocol fee is applied on top of the total via distribute().
     pub fn configure(
         env: Env,
         admin: Address,
@@ -56,6 +60,10 @@ impl RevenueSplit {
         env.storage().instance().set(&project_id, &config);
     }
 
+    /// Distribute payment among configured beneficiaries.
+    /// First deducts the protocol fee (to the fee address), then splits the
+    /// remaining amount proportionally according to each beneficiary's bps share.
+    /// Uses i128 arithmetic with checked semantics from token client.
     pub fn distribute(env: Env, caller: Address, project_id: String, asset: Address, amount: i128) -> bool {
         caller.require_auth();
         let config: RevenueConfig = env
@@ -66,8 +74,6 @@ impl RevenueSplit {
         
         let client = token::Client::new(&env, &asset);
         
-        // We assume the total amount passed in is the net amount after protocol fee or we take it here.
-        // Let's take protocol fee first.
         let fee_address: Address = env.storage().instance().get(&symbol_short!("fee_addr")).unwrap();
         let fee = amount * (config.protocol_fee_bps as i128) / 10000;
         let net_amount = amount - fee;

@@ -33,6 +33,9 @@ impl RetirementTracker {
         storage::write_credit_registry(&env, &credit_registry);
     }
 
+    /// Permanently retire a credit. This is irreversible — the credit's status
+    /// is set to Retired via cross-contract call to CreditRegistry.mark_retired.
+    /// Emits a Retired event and stores the full retirement record on-chain.
     pub fn retire(
         env: Env,
         owner: Address,
@@ -78,6 +81,9 @@ impl RetirementTracker {
         record
     }
 
+    /// Batch retire multiple credits in a single transaction.
+    /// All-or-nothing semantics — reverts entirely if any single retirement fails.
+    /// Limited to MAX_BATCH_RETIRE credits per call to prevent gas exhaustion.
     pub fn batch_retire(
         env: Env,
         owner: Address,

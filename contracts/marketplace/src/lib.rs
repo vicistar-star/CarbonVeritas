@@ -23,6 +23,9 @@ impl Marketplace {
         storage::write_credit_registry(&env, &credit_registry);
     }
 
+    /// Create a sell offer for a credit. The credit is transferred from the seller
+    /// to the contract (escrow) to prevent double-selling. Supports partial fills
+    /// and optional expiry. Returns the new offer ID.
     pub fn create_offer(
         env: Env,
         seller: Address,
@@ -66,6 +69,10 @@ impl Marketplace {
         offer_id
     }
 
+    /// Purchase credits from an existing offer. Supports partial fills.
+    /// Transfers payment from buyer to seller via the settlement token contract,
+    /// then transfers the credit from the contract escrow to the buyer.
+    /// Uses price_per_tonne in stroops per millitonne, divided by 1000 for conversion.
     pub fn buy_credits(env: Env, buyer: Address, offer_id: u64, amount: i128) -> bool {
         buyer.require_auth();
         let mut offer = storage::read_offer(&env, offer_id);
@@ -84,7 +91,6 @@ impl Marketplace {
             panic_with_error!(&env, Error::InsufficientAmount);
         }
 
-        // Transfer payment from buyer to seller
         let payment_amount = (amount * offer.price_per_tonne) / 1000;
         let token_client = soroban_sdk::token::Client::new(&env, &offer.currency);
         token_client.transfer(&buyer, &offer.seller, &payment_amount);
@@ -99,7 +105,8 @@ impl Marketplace {
             &offer.credit_id,
         );
 
-        offer.filled += amount;
+        offer.filled = offer.filled.checked_add(amount)
+            .unwrap_or_else(|| panic_with_error!(&env, Error::InvalidInput));
         if offer.filled >= offer.amount {
             offer.status = OfferStatus::Filled;
         }
@@ -108,6 +115,9 @@ impl Marketplace {
         true
     }
 
+    /// Cancel an active offer. Only the seller can cancel before expiry;
+    /// anyone can cancel an expired offer (to release stuck escrow).
+    /// Returns the credit to the seller from the contract escrow.
     pub fn cancel_offer(env: Env, caller: Address, offer_id: u64) -> bool {
         caller.require_auth();
         let mut offer = storage::read_offer(&env, offer_id);
