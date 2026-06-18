@@ -24,7 +24,7 @@ jobs:
 
       - name: Install Soroban CLI
         run: |
-          cargo install soroban-cli --locked --version 20.4.0
+          cargo install soroban-cli --locked --version 21.0.0
 
       - name: Build contracts
         run: cargo build --workspace --target wasm32-unknown-unknown --release

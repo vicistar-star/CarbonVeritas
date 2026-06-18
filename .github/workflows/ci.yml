@@ -75,7 +75,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-        working-directory: api
 
       - name: Generate Prisma client
         run: npx prisma generate
@@ -125,7 +124,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-        working-directory: frontend
 
       - name: Lint
         run: npm run lint
@@ -166,7 +164,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-        working-directory: indexer
 
       - name: Lint
         run: npm run lint
