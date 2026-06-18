@@ -1,0 +1,28 @@
+# Contract owners
+contracts/ @carbonveritas/contract-team
+
+# Backend API
+api/ @carbonveritas/api-team
+
+# Frontend
+frontend/ @carbonveritas/frontend-team
+
+# SDK & CLI
+sdk/ @carbonveritas/sdk-team
+cli/ @carbonveritas/sdk-team
+
+# Indexer
+indexer/ @carbonveritas/infra-team
+
+# Infrastructure & CI/CD
+infra/ @carbonveritas/infra-team
+.github/workflows/ @carbonveritas/infra-team
+docker-compose*.yml @carbonveritas/infra-team
+
+# Documentation
+docs/ @carbonveritas/docs-team
+*.md @carbonveritas/docs-team
+
+# Root config
+package.json @carbonveritas/contract-team
+turbo.json @carbonveritas/contract-team
