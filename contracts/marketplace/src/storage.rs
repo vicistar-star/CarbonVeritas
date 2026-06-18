@@ -65,8 +65,8 @@ pub fn read_all_offers(env: &Env, offset: u32, limit: u32) -> Vec<Offer> {
         .get(&ALL_OFFERS_KEY)
         .unwrap_or_else(|| Vec::new(env));
     let page_limit = core::cmp::min(limit, MAX_LISTINGS_PAGE);
-    let end = core::cmp::min(offset.saturating_add(page_limit), list.len() as u32);
-    if offset >= list.len() as u32 {
+    let end = core::cmp::min(offset.saturating_add(page_limit), list.len());
+    if offset >= list.len() {
         return Vec::new(env);
     }
     let mut result = Vec::new(env);

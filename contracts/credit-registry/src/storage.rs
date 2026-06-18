@@ -136,8 +136,8 @@ pub fn read_credits_by_issuer(env: &Env, issuer: &Address, offset: u32, limit: u
         .instance()
         .get(&(ISSUER_LIST_PREFIX, issuer.clone()))
         .unwrap_or_else(|| vec![env]);
-    let end = core::cmp::min(offset.saturating_add(limit), list.len() as u32);
-    if offset >= list.len() as u32 {
+    let end = core::cmp::min(offset.saturating_add(limit), list.len());
+    if offset >= list.len() {
         return vec![env];
     }
     let mut result = vec![env];

@@ -48,8 +48,8 @@ pub fn read_retirements_by_beneficiary(
         .instance()
         .get(&(BENEFICIARY_PREFIX, beneficiary.clone()))
         .unwrap_or_else(|| Vec::new(env));
-    let end = core::cmp::min(offset.saturating_add(limit), ids.len() as u32);
-    if offset >= ids.len() as u32 {
+    let end = core::cmp::min(offset.saturating_add(limit), ids.len());
+    if offset >= ids.len() {
         return Vec::new(env);
     }
     let mut result = Vec::new(env);
