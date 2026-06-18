@@ -18,7 +18,7 @@ export class AuthService {
   async exchangeToken(
     wallet: string,
     _signedChallenge: string,
-  ): Promise<{ accessToken: string }> {
+  ): Promise<{ accessToken: string; refreshToken: string }> {
     let user = await this.prisma.user.findUnique({
       where: { stellarPub: wallet },
     });
@@ -30,8 +30,30 @@ export class AuthService {
     }
 
     const payload = { sub: user.id, wallet };
-    const accessToken = this.jwtService.sign(payload);
+    const accessToken = this.jwtService.sign(payload, { expiresIn: '24h' });
+    const refreshToken = this.jwtService.sign(
+      { sub: user.id, wallet, type: 'refresh' },
+      { expiresIn: '7d' },
+    );
 
-    return { accessToken };
+    return { accessToken, refreshToken };
+  }
+
+  async refreshToken(token: string): Promise<{ accessToken: string; refreshToken: string }> {
+    try {
+      const decoded = this.jwtService.verify(token);
+      if (decoded.type !== 'refresh') {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+      const payload = { sub: decoded.sub, wallet: decoded.wallet };
+      const accessToken = this.jwtService.sign(payload, { expiresIn: '24h' });
+      const refreshToken = this.jwtService.sign(
+        { sub: decoded.sub, wallet: decoded.wallet, type: 'refresh' },
+        { expiresIn: '7d' },
+      );
+      return { accessToken, refreshToken };
+    } catch {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
   }
 }
