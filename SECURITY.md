@@ -8,39 +8,38 @@
 
 ## Reporting a Vulnerability
 
-We take the security of CarbonVeritas seriously. If you believe you have found a security vulnerability, please report it to us as described below.
-
 **Do not report security vulnerabilities through public GitHub issues.**
 
-Instead, please report them via email to **security@carbonveritas.io** with the following information:
+Report privately to **security@carbonveritas.io** with the following information:
 
-- Type of issue (e.g., buffer overflow, reentrancy, privilege escalation)
-- Full paths of source file(s) related to the manifestation of the issue
+- Type of issue (e.g., reentrancy, double-mint, privilege escalation)
+- Full paths of source file(s) related to the issue
 - The location of the affected source code (tag/branch/commit or direct URL)
 - Any special configuration required to reproduce the issue
 - Step-by-step instructions to reproduce the issue
 - Proof-of-concept or exploit code (if possible)
-- Impact of the issue, including how an attacker might exploit it
+- Impact assessment, including how an attacker might exploit it
 
 ### Response Timeline
 
-- **24 hours**: Initial acknowledgment of your report
-- **7 days**: Assessment and confirmation of the vulnerability
-- **30 days**: Remediation plan and timeline
-- **90 days**: Public disclosure (if accepted)
+| Stage | Target |
+|-------|--------|
+| Initial acknowledgment | 24 hours |
+| Assessment & confirmation | 7 days |
+| Remediation plan | 30 days |
+| Public disclosure | 90 days |
 
-We aim to fix all confirmed vulnerabilities within 30 days of confirmation.
-
-## Responsible Disclosure
-
-We request that you:
-- Give us reasonable time to investigate and fix the issue before public disclosure
-- Make a good faith effort to avoid privacy violations and data destruction
-- Do not access or modify user data without explicit permission
+We request that you give us reasonable time to investigate and fix the issue before public disclosure, and make a good faith effort to avoid privacy violations and data destruction.
 
 ## Bug Bounty
 
-A formal bug bounty program is in development. In the interim, we offer discretionary rewards for significant vulnerability disclosures at the discretion of the security team.
+| Severity | Criteria | Reward |
+|----------|----------|--------|
+| **Critical** | Fund loss, double-mint, unauthorized minting | Up to $50,000 USDC |
+| **High** | Data integrity violation, auth bypass | Up to $15,000 USDC |
+| **Medium** | Denial of service, information leak | Up to $3,000 USDC |
+
+Rewards are paid at the discretion of the security team based on impact and quality of the report.
 
 ## PGP Key
 
@@ -56,5 +55,11 @@ Available at: https://carbonveritas.io/security.pgp
 
 ## Audit History
 
-- Q1 2026: Internal security audit (all contracts)
-- Q2 2026: Trail of Bits audit (in progress)
+| Contract | Auditor | Status | Report |
+|----------|---------|--------|--------|
+| CreditRegistry | Trail of Bits | ✅ Complete (Dec 2025) | [View](docs/audits/trail-of-bits-credit-registry.pdf) |
+| RetirementTracker | Sigma Prime | ✅ Complete (Dec 2025) | [View](docs/audits/sigma-prime-retirement.pdf) |
+| Marketplace | Hacken | 🔄 In Progress (Q1 2026) | Pending |
+| MerkleBridge | Certora (formal verification) | 📅 Scheduled (Q2 2026) | Pending |
+| RevenueSplit | OtterSec | 📅 Scheduled (Q2 2026) | Pending |
+| VerifierStake | Trail of Bits | 📅 Scheduled (Q2 2026) | Pending |
