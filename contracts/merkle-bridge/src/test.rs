@@ -21,6 +21,7 @@ fn setup_test(env: &Env) -> (Address, Address, MerkleBridgeClient<'static>, Cred
     bridge_client.init(&admin, &registry_id);
 
     registry_client.add_bridge(&admin, &bridge_id);
+    registry_client.add_retirer(&admin, &bridge_id);
 
     (admin, registry_id, bridge_client, registry_client)
 }

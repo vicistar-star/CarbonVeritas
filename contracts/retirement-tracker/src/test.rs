@@ -19,6 +19,7 @@ fn setup_test(env: &Env) -> (Address, Address, RetirementTrackerClient<'static>,
     let tracker_id = env.register_contract(None, RetirementTracker);
     let tracker_client = RetirementTrackerClient::new(env, &tracker_id);
     tracker_client.init(&admin, &registry_id);
+    registry_client.add_retirer(&admin, &tracker_id);
 
     (admin, registry_id, tracker_client, registry_client)
 }

@@ -225,3 +225,21 @@ pub fn set_authorized_bridge(env: &Env, bridge: &Address, authorized: bool) {
         .instance()
         .set(&(BRIDGE_PREFIX, bridge.clone()), &authorized);
 }
+
+const RETIRER_PREFIX: &str = "r";
+
+/// Returns true if `retirer` is a contract authorized to mark credits as retired
+/// (e.g. the RetirementTracker or MerkleBridge). Only these contracts may call
+/// `mark_retired`, preventing unauthorized accounts from burning credits.
+pub fn is_authorized_retirer(env: &Env, retirer: &Address) -> bool {
+    env.storage()
+        .instance()
+        .get(&(RETIRER_PREFIX, retirer.clone()))
+        .unwrap_or(false)
+}
+
+pub fn set_authorized_retirer(env: &Env, retirer: &Address, authorized: bool) {
+    env.storage()
+        .instance()
+        .set(&(RETIRER_PREFIX, retirer.clone()), &authorized);
+}

@@ -514,23 +514,74 @@ fn test_mark_retired() {
     let verifier = Address::generate(&env);
     client.add_verifier(&admin, &verifier);
 
+    let retirer = Address::generate(&env);
+    client.add_retirer(&admin, &retirer);
+
     let credit_id = client.submit_credit(&issuer, &metadata, &String::from_str(&env, "ipfs://hash"));
     client.approve_and_mint(&verifier, &credit_id, &String::from_str(&env, "ok"));
 
-    client.mark_retired(&credit_id);
+    client.mark_retired(&retirer, &credit_id);
     assert_eq!(client.get_credit(&credit_id).status, CreditStatus::Retired);
+}
+
+#[test]
+fn test_mark_retired_unauthorized() {
+    let env = Env::default();
+    let (admin, client) = setup_single_verifier(&env);
+    let issuer = Address::generate(&env);
+    let metadata = create_metadata(&env);
+
+    let verifier = Address::generate(&env);
+    client.add_verifier(&admin, &verifier);
+
+    let credit_id = client.submit_credit(&issuer, &metadata, &String::from_str(&env, "ipfs://hash"));
+    client.approve_and_mint(&verifier, &credit_id, &String::from_str(&env, "ok"));
+
+    let attacker = Address::generate(&env);
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        client.mark_retired(&attacker, &credit_id);
+    }));
+    assert!(result.is_err());
+    assert_eq!(client.get_credit(&credit_id).status, CreditStatus::Active);
+}
+
+#[test]
+fn test_remove_retirer_revokes_access() {
+    let env = Env::default();
+    let (admin, client) = setup_single_verifier(&env);
+    let issuer = Address::generate(&env);
+    let metadata = create_metadata(&env);
+
+    let verifier = Address::generate(&env);
+    client.add_verifier(&admin, &verifier);
+
+    let retirer = Address::generate(&env);
+    client.add_retirer(&admin, &retirer);
+    client.remove_retirer(&admin, &retirer);
+
+    let credit_id = client.submit_credit(&issuer, &metadata, &String::from_str(&env, "ipfs://hash"));
+    client.approve_and_mint(&verifier, &credit_id, &String::from_str(&env, "ok"));
+
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        client.mark_retired(&retirer, &credit_id);
+    }));
+    assert!(result.is_err());
+    assert_eq!(client.get_credit(&credit_id).status, CreditStatus::Active);
 }
 
 #[test]
 #[should_panic(expected = "Error(Contract, #202)")]
 fn test_mark_retired_non_active() {
     let env = Env::default();
-    let (_, client) = setup_test(&env);
+    let (admin, client) = setup_test(&env);
     let issuer = Address::generate(&env);
     let metadata = create_metadata(&env);
 
+    let retirer = Address::generate(&env);
+    client.add_retirer(&admin, &retirer);
+
     let credit_id = client.submit_credit(&issuer, &metadata, &String::from_str(&env, "ipfs://hash"));
-    client.mark_retired(&credit_id);
+    client.mark_retired(&retirer, &credit_id);
 }
 
 #[test]

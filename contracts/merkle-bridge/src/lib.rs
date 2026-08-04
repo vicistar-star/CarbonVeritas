@@ -81,7 +81,7 @@ impl MerkleBridge {
             panic_with_error!(&env, Error::NotAuthorized);
         }
 
-        client.mark_retired(&credit_id);
+        client.mark_retired(&env.current_contract_address(), &credit_id);
         events::emit_bridge_out(&env, credit_id, &owner);
         
         true

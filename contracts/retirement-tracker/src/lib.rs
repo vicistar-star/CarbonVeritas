@@ -61,7 +61,7 @@ impl RetirementTracker {
             panic_with_error!(&env, Error::CreditNotOwned);
         }
 
-        client.mark_retired(&credit_id);
+        client.mark_retired(&env.current_contract_address(), &credit_id);
 
         let record = RetirementRecord {
             credit_id,
@@ -112,7 +112,7 @@ impl RetirementTracker {
                 panic_with_error!(&env, Error::CreditNotOwned);
             }
 
-            client.mark_retired(&input.credit_id);
+            client.mark_retired(&env.current_contract_address(), &input.credit_id);
 
             let record = RetirementRecord {
                 credit_id: input.credit_id,

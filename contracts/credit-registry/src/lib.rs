@@ -162,10 +162,16 @@ impl CreditRegistry {
         storage::read_credits_by_owner(&env, &owner)
     }
 
-    /// Permanently retire a credit. Called only by the RetirementTracker contract
-    /// via cross-contract call. This is irreversible — once Retired, a credit
-    /// can never be transferred or reactivated.
-    pub fn mark_retired(env: Env, credit_id: u64) {
+    /// Permanently retire a credit. Called only by an authorized contract
+    /// (the RetirementTracker or MerkleBridge) via cross-contract call. This is
+    /// irreversible — once Retired, a credit can never be transferred or reactivated.
+    /// Reverts unless `caller` is both authenticated and registered as an
+    /// authorized retirer via `add_retirer`.
+    pub fn mark_retired(env: Env, caller: Address, credit_id: u64) {
+        caller.require_auth();
+        if !storage::is_authorized_retirer(&env, &caller) {
+            panic_with_error!(&env, Error::NotAuthorized);
+        }
         let mut credit = storage::read_credit(&env, credit_id);
         if credit.status != CreditStatus::Active {
             panic_with_error!(&env, Error::CreditNotActive);
@@ -274,5 +280,24 @@ impl CreditRegistry {
         admin.require_auth();
         validation::require_admin(&env);
         storage::set_authorized_bridge(&env, &bridge, false);
+    }
+
+    /// Authorize a contract (e.g. RetirementTracker or MerkleBridge) to mark
+    /// credits as retired via `mark_retired`. Admin-only.
+    pub fn add_retirer(env: Env, admin: Address, retirer: Address) {
+        admin.require_auth();
+        validation::require_admin(&env);
+        storage::set_authorized_retirer(&env, &retirer, true);
+    }
+
+    /// Revoke a contract's authorization to mark credits as retired. Admin-only.
+    pub fn remove_retirer(env: Env, admin: Address, retirer: Address) {
+        admin.require_auth();
+        validation::require_admin(&env);
+        storage::set_authorized_retirer(&env, &retirer, false);
+    }
+
+    pub fn is_retirer(env: Env, retirer: Address) -> bool {
+        storage::is_authorized_retirer(&env, &retirer)
     }
 }
