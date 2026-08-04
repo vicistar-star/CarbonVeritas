@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { IndexerSync, SyncCursor } from './sync';
+import { contractIds } from './config';
 
 const DEFAULT_RPC_URL = 'https://soroban-testnet.stellar.org';
 const DEFAULT_PORT = 3001;
@@ -22,7 +23,14 @@ async function main(): Promise<void> {
     ? JSON.parse(process.env.INDEXER_CURSOR)
     : undefined;
 
-  const sync = new IndexerSync(prisma, RPC_URL, POLL_INTERVAL_MS, initialCursor);
+  const watchedContracts = contractIds();
+  const sync = new IndexerSync(
+    prisma,
+    RPC_URL,
+    POLL_INTERVAL_MS,
+    initialCursor,
+    watchedContracts,
+  );
 
   const resync = process.env.INDEXER_RESYNC === 'true';
   if (resync) {

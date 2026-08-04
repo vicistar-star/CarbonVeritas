@@ -11,6 +11,10 @@ import { processCreditRetired, CreditRetiredEvent } from './processors/credit-re
 import { processOfferCreated, OfferCreatedEvent } from './processors/offer-created';
 import { processOfferFilled, OfferFilledEvent } from './processors/offer-filled';
 import { processOfferCancelled, OfferCancelledEvent } from './processors/offer-cancelled';
+import { contractIds as readContractIds } from './config';
+
+const PAGE_LIMIT = 100;
+const MAX_PAGES = 50;
 
 export type SyncEvent =
   | { type: 'CreditSubmitted'; data: CreditSubmittedEvent }
@@ -28,23 +32,41 @@ export interface SyncCursor {
   txIndex: number;
 }
 
+interface RpcEvent {
+  type?: string;
+  ledger?: number;
+  ledgerClosedAt?: string;
+  contractId?: string;
+  id?: string;
+  txHash?: string;
+  txIndex?: number;
+  inSuccessfulContractCall?: boolean;
+  topic?: string[];
+  value?: Record<string, unknown>;
+}
+
 export class IndexerSync {
   private prisma: PrismaClient;
   private cursor: SyncCursor;
   private running = false;
   private pollIntervalMs: number;
   private rpcUrl: string;
+  private contractIds: string[];
+  private warnedNoContracts = false;
 
   constructor(
     prisma: PrismaClient,
     rpcUrl: string,
     pollIntervalMs = 5000,
     initialCursor?: SyncCursor,
+    contractIds: string[] = [],
   ) {
     this.prisma = prisma;
     this.rpcUrl = rpcUrl;
     this.pollIntervalMs = pollIntervalMs;
     this.cursor = initialCursor ?? { ledgerSequence: 1, txIndex: 0 };
+    this.contractIds =
+      contractIds.length > 0 ? contractIds : readContractIds();
   }
 
   getCursor(): SyncCursor {
@@ -109,57 +131,107 @@ export class IndexerSync {
     }
   }
 
+  private async fetchEventPage(startLedger: number): Promise<RpcEvent[]> {
+    const response = await fetch(this.rpcUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'getEvents',
+        params: {
+          startLedger,
+          filters: [{ type: 'contract', contractIds: this.contractIds }],
+          pagination: { limit: PAGE_LIMIT },
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      console.warn(`[Indexer] RPC returned ${response.status}`);
+      return [];
+    }
+
+    const result = await response.json();
+    if (result.error) {
+      console.warn('[Indexer] RPC error:', result.error);
+      return [];
+    }
+
+    return (result.result?.events ?? []) as RpcEvent[];
+  }
+
   private async fetchEvents(): Promise<SyncEvent[]> {
+    if (this.contractIds.length === 0) {
+      if (!this.warnedNoContracts) {
+        console.warn(
+          '[Indexer] No contracts configured; indexer is idle. Set INDEXER_*_CONTRACT env vars.',
+        );
+        this.warnedNoContracts = true;
+      }
+      return [];
+    }
+
     const events: SyncEvent[] = [];
+    const { ledgerSequence, txIndex } = this.cursor;
+    let seen: SyncCursor = { ledgerSequence, txIndex };
+    let startLedger = ledgerSequence;
+    let pageCount = 0;
+    let drained = false;
+    let sawEvents = false;
 
-    try {
-      const response = await fetch(this.rpcUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          id: 1,
-          method: 'getEvents',
-          params: {
-            startLedger: this.cursor.ledgerSequence,
-            filters: [
-              { type: 'contract', contractIds: [] },
-            ],
-            pagination: { limit: 100 },
-          },
-        }),
-      });
-
-      if (!response.ok) {
-        console.warn(`[Indexer] RPC returned ${response.status}`);
-        return events;
+    for (; pageCount < MAX_PAGES; pageCount++) {
+      const page = await this.fetchEventPage(startLedger);
+      if (page.length === 0) {
+        drained = true;
+        break;
       }
 
-      const result = await response.json();
-      if (result.error) {
-        console.warn('[Indexer] RPC error:', result.error);
-        return events;
-      }
+      for (const rpcEvent of page) {
+        if (rpcEvent.inSuccessfulContractCall === false) continue;
 
-      const rpcEvents = result.result?.events ?? [];
-      for (const rpcEvent of rpcEvents) {
+        const evLedger = Number(rpcEvent.ledger ?? seen.ledgerSequence);
+        const evTxIndex = Number(rpcEvent.txIndex ?? 0);
+        if (
+          evLedger < seen.ledgerSequence ||
+          (evLedger === seen.ledgerSequence && evTxIndex <= seen.txIndex)
+        ) {
+          continue;
+        }
+
+        sawEvents = true;
         const parsed = this.parseRpcEvent(rpcEvent);
-        if (parsed) {
-          events.push(parsed);
-          this.cursor.ledgerSequence = Math.max(
-            this.cursor.ledgerSequence,
-            rpcEvent.ledger ?? this.cursor.ledgerSequence,
-          );
+        if (parsed) events.push(parsed);
+
+        if (
+          evLedger > seen.ledgerSequence ||
+          (evLedger === seen.ledgerSequence && evTxIndex > seen.txIndex)
+        ) {
+          seen = { ledgerSequence: evLedger, txIndex: evTxIndex };
         }
       }
-    } catch (err) {
-      console.error('[Indexer] Failed to fetch events:', (err as Error).message);
+
+      if (page.length < PAGE_LIMIT) {
+        drained = true;
+        break;
+      }
+      startLedger = seen.ledgerSequence;
+    }
+
+    if (drained && sawEvents) {
+      this.cursor = { ledgerSequence: seen.ledgerSequence + 1, txIndex: 0 };
+    } else if (
+      seen.ledgerSequence > this.cursor.ledgerSequence ||
+      (seen.ledgerSequence === this.cursor.ledgerSequence &&
+        seen.txIndex > this.cursor.txIndex)
+    ) {
+      this.cursor = seen;
     }
 
     return events;
   }
 
-  private parseRpcEvent(rpcEvent: Record<string, unknown>): SyncEvent | null {
+  private parseRpcEvent(rpcEvent: RpcEvent): SyncEvent | null {
     try {
       const value = rpcEvent.value as Record<string, unknown> | undefined;
       const topic = (rpcEvent.topic as string[]) ?? [];
@@ -188,7 +260,7 @@ export class IndexerSync {
               additionalityType: Number(v.additionality_type ?? v.additionalityType ?? 0),
               ipfsHash: String(v.ipfs_hash ?? v.ipfsHash ?? ''),
               timestamp: Number(v.timestamp ?? 0),
-              txHash: String(rpcEvent.tx_hash ?? v.txHash ?? ''),
+              txHash: String(rpcEvent.txHash ?? v.txHash ?? ''),
             },
           };
         }
@@ -202,7 +274,7 @@ export class IndexerSync {
               approved: v.approved === true || v.approved === 'true',
               comments: v.comments ? String(v.comments) : undefined,
               timestamp: Number(v.timestamp ?? 0),
-              txHash: String(rpcEvent.tx_hash ?? v.txHash ?? ''),
+              txHash: String(rpcEvent.txHash ?? v.txHash ?? ''),
             },
           };
         }
@@ -214,7 +286,7 @@ export class IndexerSync {
               creditId: Number(v.credit_id ?? v.creditId ?? 0),
               tokenId: String(v.token_id ?? v.tokenId ?? ''),
               timestamp: Number(v.timestamp ?? 0),
-              txHash: String(rpcEvent.tx_hash ?? v.txHash ?? ''),
+              txHash: String(rpcEvent.txHash ?? v.txHash ?? ''),
             },
           };
         }
@@ -227,7 +299,7 @@ export class IndexerSync {
               verifier: String(v.verifier ?? ''),
               reason: String(v.reason ?? ''),
               timestamp: Number(v.timestamp ?? 0),
-              txHash: String(rpcEvent.tx_hash ?? v.txHash ?? ''),
+              txHash: String(rpcEvent.txHash ?? v.txHash ?? ''),
             },
           };
         }
@@ -240,7 +312,7 @@ export class IndexerSync {
               from: String(v.from ?? ''),
               to: String(v.to ?? ''),
               timestamp: Number(v.timestamp ?? 0),
-              txHash: String(rpcEvent.tx_hash ?? v.txHash ?? ''),
+              txHash: String(rpcEvent.txHash ?? v.txHash ?? ''),
             },
           };
         }
@@ -255,7 +327,7 @@ export class IndexerSync {
               reason: String(v.reason ?? ''),
               accountingPeriod: String(v.accounting_period ?? v.accountingPeriod ?? ''),
               tonnesRetired: Number(v.tonnes_retired ?? v.tonnesRetired ?? 0),
-              txHash: String(rpcEvent.tx_hash ?? v.txHash ?? ''),
+              txHash: String(rpcEvent.txHash ?? v.txHash ?? ''),
               ledgerSequence: Number(v.ledger_sequence ?? v.ledgerSequence ?? 0),
               timestamp: Number(v.timestamp ?? 0),
             },
@@ -274,7 +346,7 @@ export class IndexerSync {
               currency: String(v.currency ?? 'USDC'),
               expiresAt: v.expires_at ? Number(v.expires_at) : v.expiresAt ? Number(v.expiresAt) : undefined,
               timestamp: Number(v.timestamp ?? 0),
-              txHash: String(rpcEvent.tx_hash ?? v.txHash ?? ''),
+              txHash: String(rpcEvent.txHash ?? v.txHash ?? ''),
             },
           };
         }
@@ -288,7 +360,7 @@ export class IndexerSync {
               amount: Number(v.amount ?? 0),
               totalPrice: Number(v.total_price ?? v.totalPrice ?? 0),
               timestamp: Number(v.timestamp ?? 0),
-              txHash: String(rpcEvent.tx_hash ?? v.txHash ?? ''),
+              txHash: String(rpcEvent.txHash ?? v.txHash ?? ''),
             },
           };
         }
@@ -299,7 +371,7 @@ export class IndexerSync {
             data: {
               offerId: Number(v.offer_id ?? v.offerId ?? 0),
               timestamp: Number(v.timestamp ?? 0),
-              txHash: String(rpcEvent.tx_hash ?? v.txHash ?? ''),
+              txHash: String(rpcEvent.txHash ?? v.txHash ?? ''),
             },
           };
         }
