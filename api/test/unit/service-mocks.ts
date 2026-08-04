@@ -1,6 +1,7 @@
 export function createPrismaMock() {
   return {
     user: {
+      count: jest.fn(),
       findUnique: jest.fn(),
       findFirst: jest.fn(),
       create: jest.fn(),
@@ -25,6 +26,7 @@ export function createPrismaMock() {
       deleteMany: jest.fn(),
     },
     verifier: {
+      count: jest.fn(),
       create: jest.fn(),
       findFirst: jest.fn(),
       findMany: jest.fn(),
@@ -48,6 +50,7 @@ export function createPrismaMock() {
       deleteMany: jest.fn(),
     },
     retirement: {
+      count: jest.fn(),
       create: jest.fn(),
       findFirst: jest.fn(),
       update: jest.fn(),
@@ -61,6 +64,7 @@ export function createPrismaMock() {
       deleteMany: jest.fn(),
     },
     webhook: {
+      count: jest.fn(),
       create: jest.fn(),
       delete: jest.fn(),
       findMany: jest.fn(),

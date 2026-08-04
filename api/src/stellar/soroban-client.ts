@@ -78,6 +78,15 @@ export class SorobanClient {
     this.serverInstance = server;
   }
 
+  /** Latest ledger sequence + hash, used for network health checks. */
+  async getLatestLedger(): Promise<{ sequence: number; ledgerHash: string }> {
+    const ledger = await this.server.getLatestLedger();
+    return {
+      sequence: ledger.sequence,
+      ledgerHash: ledger.id,
+    };
+  }
+
   private defaultFee(): string {
     const raw = this.config.get<string>('STELLAR_TX_FEE');
     const parsed = raw ? parseInt(raw, 10) : 100000;

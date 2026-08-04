@@ -4,6 +4,6 @@ import { StellarService } from './stellar.service';
 
 @Module({
   providers: [StellarService, SorobanClient],
-  exports: [StellarService],
+  exports: [StellarService, SorobanClient],
 })
 export class StellarModule {}

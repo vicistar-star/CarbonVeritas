@@ -17,6 +17,7 @@ import { VerifiersModule } from './verifiers/verifiers.module';
 import { CertificatesModule } from './certificates/certificates.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { EventEmitterModule } from './events/event-emitter.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { EventEmitterModule } from './events/event-emitter.module';
     CertificatesModule,
     WebhooksModule,
     EventEmitterModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [

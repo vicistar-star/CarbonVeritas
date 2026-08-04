@@ -216,6 +216,17 @@ export const VERIFIER_FIELDS = [
   'registeredAt',
 ] as const;
 
+const CONFIG_FIELDS = [
+  'admin',
+  'verifierThreshold',
+  'verifierQuorum',
+  'approvalWindow',
+  'protocolFeeBps',
+  'bufferPoolPct',
+] as const;
+
+export const CONFIG_FIELDS_MAP = CONFIG_FIELDS;
+
 /**
  * Decode a struct `ScVal::Vec` into a plain object using a field-name map.
  * Numbers arrive as BigInt from the SDK where required; callers that need a
@@ -263,6 +274,10 @@ export function decodeRetirementRecord(sv: RawScVal): Record<string, unknown> {
 
 export function decodeVerifier(sv: RawScVal): Record<string, unknown> {
   return decodeStruct(VERIFIER_FIELDS, sv);
+}
+
+export function decodeContractConfig(sv: RawScVal): Record<string, unknown> {
+  return decodeStruct(CONFIG_FIELDS, sv);
 }
 
 export function decodeNative(sv: RawScVal): unknown {
