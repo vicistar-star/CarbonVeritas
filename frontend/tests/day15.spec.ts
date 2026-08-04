@@ -160,3 +160,19 @@ test('verifier approval flow is wallet-gated before review actions', async ({ pa
   await expect(page.getByRole('heading', { name: 'Verifier Dashboard' })).toBeVisible();
   await expect(page.getByText('Connect your wallet to access the verifier dashboard.')).toBeVisible();
 });
+
+test('admin panel is wallet-gated before governance actions', async ({ page }) => {
+  await page.goto('/admin');
+
+  await expect(page.getByRole('heading', { name: 'Admin Panel' })).toBeVisible();
+  await expect(page.getByText('Connect your wallet to access the admin panel.')).toBeVisible();
+});
+
+test('webhooks page is wallet-gated before endpoint management', async ({ page }) => {
+  await page.goto('/webhooks');
+
+  await expect(page.getByRole('heading', { name: 'Webhooks' })).toBeVisible();
+  await expect(
+    page.getByText('Connect your wallet to manage webhook endpoints that receive CarbonVeritas events.'),
+  ).toBeVisible();
+});
