@@ -138,7 +138,6 @@ export class AuthService {
     const server = this.getServerKeypair();
     const homeDomain = this.getHomeDomain();
     const networkPassphrase = this.getNetworkPassphrase();
-    const timeoutSeconds = this.getChallengeTimeoutSeconds();
 
     let verifiedSigners: string[];
     try {

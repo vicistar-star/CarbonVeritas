@@ -10,7 +10,7 @@ export class IpfsService {
   async pinFile(
     buffer: Buffer,
     fileName: string,
-    metadata?: Record<string, unknown>,
+    _metadata?: Record<string, unknown>,
   ): Promise<{ ipfsHash: string; pinSize: number; timestamp: string }> {
     this.logger.log(`pinFile: ${fileName}`);
     return {
@@ -22,7 +22,7 @@ export class IpfsService {
 
   async pinJson(
     data: Record<string, unknown>,
-    metadata?: Record<string, unknown>,
+    _metadata?: Record<string, unknown>,
   ): Promise<{ ipfsHash: string; pinSize: number; timestamp: string }> {
     this.logger.log('pinJson');
     return {

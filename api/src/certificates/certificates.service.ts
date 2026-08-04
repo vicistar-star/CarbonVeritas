@@ -11,6 +11,8 @@ import { StellarService } from '../stellar/stellar.service';
 import { VerifyCertificateDto } from './dto/verify-certificate.dto';
 import { BatchCertificateDto } from './dto/batch-certificate.dto';
 import * as crypto from 'crypto';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { Readable } from 'stream';
 
 @Injectable()
@@ -349,14 +351,12 @@ export class CertificatesService {
   }
 
   private getTemplate(): string {
-    const fs = require('fs');
-    const path = require('path');
-    const templatePath = path.join(
+    const templatePath = join(
       __dirname,
       'templates',
       'certificate.hbs',
     );
-    return fs.readFileSync(templatePath, 'utf-8');
+    return readFileSync(templatePath, 'utf-8');
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
