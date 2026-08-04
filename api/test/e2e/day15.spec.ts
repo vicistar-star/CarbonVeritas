@@ -296,7 +296,7 @@ describe('Day 15 E2E smoke flows', () => {
       .send({ beneficiary: 'Day 15 Buyer', reason: 'E2E offset', accountingPeriod: '2026-06' })
       .expect(201);
 
-    const user = await prisma.user.findUnique({ where: { stellarPub: 'GDAY15USER111111111111111111111111111111111111111' } });
+    const user = await prisma.user.findUnique({ where: { stellarPub: userKeypair.publicKey() } });
     const credit = await prisma.credit.findUnique({ where: { creditId } });
     const certificate = await prisma.certificate.create({
       data: {

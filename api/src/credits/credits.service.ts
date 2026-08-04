@@ -49,7 +49,24 @@ export class CreditsService {
 
     const { ipfsHash } = await this.ipfs.pinJson(ipfsPayload);
 
-    const txHash = await this.stellar.submitCredit(wallet, {}, ipfsHash);
+    const txHash = await this.stellar.submitCredit(
+      wallet,
+      {
+        projectId: dto.projectId,
+        methodology: dto.methodology,
+        vintageStart: Math.floor(new Date(dto.vintageStart).getTime() / 1000),
+        vintageEnd: Math.floor(new Date(dto.vintageEnd).getTime() / 1000),
+        tonnes: dto.tonnes,
+        geography: dto.geography,
+        serialPrefix,
+        sdgFlags: ipfsPayload.sdgFlags,
+        permanenceRating: ipfsPayload.permanenceRating,
+        bufferContributionPct: ipfsPayload.bufferContributionPct,
+        additionalityType: ipfsPayload.additionalityType,
+        ipfsHash,
+      },
+      ipfsHash,
+    );
 
     const creditCounter = await this.getNextCreditCounter();
 

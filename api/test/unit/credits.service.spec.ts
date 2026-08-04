@@ -35,7 +35,17 @@ describe('CreditsService', () => {
     } as never);
 
     expect(ipfs.pinJson).toHaveBeenCalledWith(expect.objectContaining({ projectId: 'AMZ-001' }));
-    expect(stellar.submitCredit).toHaveBeenCalledWith(user.stellarPub, {}, 'bafy123');
+    expect(stellar.submitCredit).toHaveBeenCalledWith(
+      user.stellarPub,
+      expect.objectContaining({
+        projectId: 'AMZ-001',
+        methodology: 'VCS:VM0007',
+        tonnes: 250,
+        geography: 'BR',
+        ipfsHash: 'bafy123',
+      }),
+      'bafy123',
+    );
     expect(prisma.credit.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ creditId: 1, status: 'PENDING', issuerId: user.id }),
     }));

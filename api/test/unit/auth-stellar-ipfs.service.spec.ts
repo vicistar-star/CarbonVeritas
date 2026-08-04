@@ -1,10 +1,12 @@
 import { AuthService } from '../../src/auth/auth.service';
 import { IpfsService } from '../../src/ipfs/ipfs.service';
+import { SorobanError } from '../../src/stellar/soroban-client';
 import { StellarService } from '../../src/stellar/stellar.service';
 import { createPrismaMock } from './service-mocks';
 import {
   Keypair,
   Networks,
+  StrKey,
   TransactionBuilder,
   WebAuth,
 } from '@stellar/stellar-sdk';
@@ -191,16 +193,143 @@ describe('AuthService', () => {
 });
 
 describe('StellarService', () => {
-  it('returns deterministic mock results for Soroban call wrappers', async () => {
-    const service = new StellarService({} as never);
+  const admin = Keypair.random();
+  const verifier = Keypair.random();
+  const registryContract = StrKey.encodeContract(Buffer.alloc(32, 1));
+  const trackerContract = StrKey.encodeContract(Buffer.alloc(32, 2));
+  const marketplaceContract = StrKey.encodeContract(Buffer.alloc(32, 3));
+  const adminSecret = admin.secret();
+  const verifierSecret = verifier.secret();
 
-    await expect(service.submitCredit('GISSUER', {}, 'bafy123')).resolves.toBe('pending-tx-hash');
-    await expect(service.approveAndMint('GVERIFIER', 1, 'ok')).resolves.toBe('tx-hash-placeholder');
-    await expect(service.buyCredits('GBUYER', 2, 5)).resolves.toBe(true);
-    await expect(service.retire('GOWNER', 1, 'offset', 'Acme', '2026-06')).resolves.toMatchObject({
-      creditId: 1,
-      txHash: '0xplaceholder',
+  const makeService = (soroban: unknown) => {
+    const config = {
+      get: (key: string) =>
+        ({
+          CREDIT_REGISTRY_CONTRACT: registryContract,
+          RETIREMENT_TRACKER_CONTRACT: trackerContract,
+          MARKETPLACE_CONTRACT: marketplaceContract,
+          STELLAR_ADMIN_SECRET_KEY: adminSecret,
+          STELLAR_VERIFIER_SECRET_KEY: verifierSecret,
+        })[key],
+    };
+    const service = new StellarService(config as never, soroban as never);
+    return service;
+  };
+
+  it('submits a real submit_credit call and returns the tx hash', async () => {
+    const invoke = jest.fn().mockResolvedValue({
+      hash: 'tx-credit-1',
+      status: 'SUCCESS',
+      returnValue: 42n,
     });
+    const service = makeService({ invoke });
+
+    await expect(
+      service.submitCredit(admin.publicKey(), { projectId: 'P-1' }, 'bafy123'),
+    ).resolves.toBe('tx-credit-1');
+
+    expect(invoke).toHaveBeenCalledWith({
+      contractId: registryContract,
+      method: 'submit_credit',
+      signerSecret: adminSecret,
+      args: expect.any(Array),
+    });
+  });
+
+  it('decodes approve_and_mint Some(BytesN<32>) into a token id', async () => {
+    const invoke = jest.fn().mockResolvedValue({
+      hash: 'tx-approve',
+      status: 'SUCCESS',
+      returnValue: [Buffer.alloc(32, 9)],
+    });
+    const service = makeService({ invoke });
+
+    await expect(
+      service.approveAndMint(verifier.publicKey(), 1, 'ok'),
+    ).resolves.toBe('09'.repeat(32));
+    expect(invoke).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contractId: registryContract,
+        method: 'approve_and_mint',
+        signerSecret: verifierSecret,
+      }),
+    );
+  });
+
+  it('maps a RetirementRecord native value onto the retire result', async () => {
+    const invoke = jest.fn().mockResolvedValue({
+      hash: 'tx-retire',
+      status: 'SUCCESS',
+      returnValue: [
+        7n,
+        admin.publicKey(),
+        'Acme',
+        'offsetting 2026',
+        '2026-06',
+        10n,
+        Buffer.alloc(32, 1),
+        12345,
+        1700000000n,
+        Buffer.alloc(32, 2),
+      ],
+    });
+    const service = makeService({ invoke });
+
+    const result = await service.retire(
+      admin.publicKey(),
+      7,
+      'offsetting 2026',
+      'Acme',
+      '2026-06',
+    );
+
+    expect(result).toMatchObject({
+      creditId: 7,
+      retiredBy: admin.publicKey(),
+      beneficiary: 'Acme',
+      txHash: 'tx-retire',
+      ledgerSequence: 12345,
+    });
+  });
+
+  it('returns true when buy_credits succeeds', async () => {
+    const invoke = jest.fn().mockResolvedValue({
+      hash: 'tx-buy',
+      status: 'SUCCESS',
+      returnValue: true,
+    });
+    const service = makeService({ invoke });
+
+    await expect(service.buyCredits(admin.publicKey(), 2, 5)).resolves.toBe(true);
+    expect(invoke).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contractId: marketplaceContract,
+        method: 'buy_credits',
+      }),
+    );
+  });
+
+  it('raises BadGateway when Soroban rejects a call', async () => {
+    const invoke = jest.fn().mockRejectedValue(
+      new SorobanError('Contract call submit_credit rejected: xdr'),
+    );
+    const service = makeService({ invoke });
+
+    await expect(
+      service.submitCredit(admin.publicKey(), {}, 'bafy'),
+    ).rejects.toThrow('rejected: xdr');
+  });
+
+  it('fails fast when contract addresses are not configured', async () => {
+    const invoke = jest.fn();
+    const service = makeService({ invoke });
+
+    const leaf = '01'.repeat(32);
+    const root = '02'.repeat(32);
+
+    await expect(service.verifyProof(leaf, [root], root)).rejects.toThrow(
+      'MERKLE_BRIDGE_CONTRACT is not configured',
+    );
   });
 });
 
