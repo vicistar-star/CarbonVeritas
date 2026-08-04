@@ -643,3 +643,88 @@ fn test_credit_counter_increments() {
     assert_eq!(id2, 2);
     assert_eq!(id3, 3);
 }
+
+#[test]
+fn test_get_config_defaults() {
+    let env = Env::default();
+    let (admin, client) = setup_test(&env);
+
+    let config = client.get_config();
+    assert_eq!(config.admin, admin);
+    assert_eq!(config.verifier_threshold, 2);
+    assert_eq!(config.verifier_quorum, 3);
+    assert_eq!(config.approval_window, 604_800);
+    assert_eq!(config.protocol_fee_bps, 50);
+    assert_eq!(config.buffer_pool_pct, 10);
+}
+
+#[test]
+fn test_update_config() {
+    let env = Env::default();
+    let (admin, client) = setup_test(&env);
+
+    let ok = client.update_config(&admin, &3, &5, &86400, &100, &20);
+    assert!(ok);
+
+    let config = client.get_config();
+    assert_eq!(config.verifier_threshold, 3);
+    assert_eq!(config.verifier_quorum, 5);
+    assert_eq!(config.approval_window, 86400);
+    assert_eq!(config.protocol_fee_bps, 100);
+    assert_eq!(config.buffer_pool_pct, 20);
+}
+
+#[test]
+fn test_update_config_unauthorized() {
+    let env = Env::default();
+    let (_, client) = setup_test(&env);
+
+    let attacker = Address::generate(&env);
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        client.update_config(&attacker, &3, &5, &86400, &100, &20);
+    }));
+    assert!(result.is_err());
+
+    let config = client.get_config();
+    assert_eq!(config.verifier_threshold, 2);
+}
+
+#[test]
+fn test_update_config_invalid_bounds() {
+    let env = Env::default();
+    let (admin, client) = setup_test(&env);
+
+    // Threshold cannot exceed quorum
+    let r1 = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        client.update_config(&admin, &5, &3, &86400, &100, &20);
+    }));
+    assert!(r1.is_err());
+
+    // Quorum cannot exceed MAX_VERIFIERS
+    let r2 = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        client.update_config(&admin, &1, &21, &86400, &100, &20);
+    }));
+    assert!(r2.is_err());
+
+    // Approval window too small
+    let r3 = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        client.update_config(&admin, &2, &3, &60, &100, &20);
+    }));
+    assert!(r3.is_err());
+
+    // Fee too high
+    let r4 = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        client.update_config(&admin, &2, &3, &86400, &1001, &20);
+    }));
+    assert!(r4.is_err());
+
+    // Buffer pool too high
+    let r5 = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        client.update_config(&admin, &2, &3, &86400, &100, &51);
+    }));
+    assert!(r5.is_err());
+
+    let config = client.get_config();
+    assert_eq!(config.verifier_threshold, 2);
+    assert_eq!(config.verifier_quorum, 3);
+}

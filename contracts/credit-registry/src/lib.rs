@@ -199,6 +199,62 @@ impl CreditRegistry {
         );
     }
 
+    /// Return the current protocol configuration (threshold, quorum, fees, etc.).
+    /// This is the single source of truth for protocol parameters and is
+    /// consumed by the API, indexer, and any external integrators.
+    pub fn get_config(env: Env) -> ContractConfig {
+        storage::read_config(&env)
+    }
+
+    /// Update protocol configuration. Admin-only. Validates each parameter
+    /// against sane bounds to prevent governance mistakes:
+    ///   - threshold >= 1 and <= quorum, quorum >= 1 and <= MAX_VERIFIERS
+    ///   - approval_window in [1 hour, 90 days]
+    ///   - protocol_fee_bps <= 1000 (10%)
+    ///   - buffer_pool_pct <= 50
+    /// Emits a ConfigUpdated event on success.
+    pub fn update_config(
+        env: Env,
+        admin: Address,
+        verifier_threshold: u32,
+        verifier_quorum: u32,
+        approval_window: u64,
+        protocol_fee_bps: u32,
+        buffer_pool_pct: u32,
+    ) -> bool {
+        admin.require_auth();
+        if admin != storage::read_admin(&env) {
+            panic_with_error!(&env, Error::NotAuthorized);
+        }
+
+        if verifier_threshold == 0
+            || verifier_quorum == 0
+            || verifier_threshold > verifier_quorum
+            || verifier_quorum > carbonveritas_shared::constants::MAX_VERIFIERS
+        {
+            panic_with_error!(&env, Error::InvalidInput);
+        }
+        if !(3600..=90 * 24 * 3600).contains(&approval_window) {
+            panic_with_error!(&env, Error::InvalidInput);
+        }
+        if protocol_fee_bps > 1000 {
+            panic_with_error!(&env, Error::InvalidInput);
+        }
+        if buffer_pool_pct > 50 {
+            panic_with_error!(&env, Error::InvalidInput);
+        }
+
+        let mut config = storage::read_config(&env);
+        config.verifier_threshold = verifier_threshold;
+        config.verifier_quorum = verifier_quorum;
+        config.approval_window = approval_window;
+        config.protocol_fee_bps = protocol_fee_bps;
+        config.buffer_pool_pct = buffer_pool_pct;
+        storage::write_config(&env, &config);
+        events::emit_config_updated(&env, &admin);
+        true
+    }
+
     pub fn add_verifier(env: Env, admin: Address, verifier: Address) {
         admin.require_auth();
         validation::require_admin(&env);

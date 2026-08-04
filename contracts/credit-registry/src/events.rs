@@ -34,3 +34,10 @@ pub fn emit_credit_transferred(env: &Env, credit_id: u64, from: &Address, to: &A
         (credit_id, from.clone(), to.clone()),
     );
 }
+
+pub fn emit_config_updated(env: &Env, admin: &Address) {
+    env.events().publish(
+        (symbol_short!("config"), symbol_short!("update")),
+        admin.clone(),
+    );
+}
