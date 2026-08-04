@@ -22,7 +22,11 @@ export class AuthController {
   @Post('token')
   @ApiOperation({ summary: 'Exchange signed challenge for JWT' })
   async token(@Body() dto: TokenDto) {
-    return this.authService.exchangeToken(dto.wallet, dto.signedChallenge);
+    return this.authService.exchangeToken(
+      dto.wallet,
+      dto.signedChallenge,
+      dto.challengeId,
+    );
   }
 
   @Public()

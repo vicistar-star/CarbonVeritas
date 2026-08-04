@@ -67,6 +67,12 @@ export function createPrismaMock() {
       findUnique: jest.fn(),
       deleteMany: jest.fn(),
     },
+    challenge: {
+      create: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+      deleteMany: jest.fn(),
+    },
   };
 }
 

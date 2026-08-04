@@ -5,12 +5,41 @@ import { AppModule } from '../../src/app.module';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { StellarService } from '../../src/stellar/stellar.service';
 import { IpfsService } from '../../src/ipfs/ipfs.service';
+import {
+  Keypair,
+  Networks,
+  TransactionBuilder,
+} from '@stellar/stellar-sdk';
 
 describe('Day 15 E2E smoke flows', () => {
   let app: INestApplication;
   let prisma: PrismaService & ReturnType<typeof createInMemoryPrisma>;
   let token: string;
   let verifierToken: string;
+
+  const serverKeypair = Keypair.random();
+  const userKeypair = Keypair.random();
+  const verifierKeypair = Keypair.random();
+  const networkPassphrase = Networks.TESTNET;
+
+  const authenticate = async (keypair: Keypair): Promise<string> => {
+    const challenge = await request(app.getHttpServer())
+      .post('/auth/challenge')
+      .send({ wallet: keypair.publicKey() })
+      .expect(201);
+    const tx = TransactionBuilder.fromXDR(challenge.body.transaction, networkPassphrase);
+    tx.sign(keypair);
+    const signed = tx.toEnvelope().toXDR('base64');
+    const auth = await request(app.getHttpServer())
+      .post('/auth/token')
+      .send({
+        wallet: keypair.publicKey(),
+        signedChallenge: signed,
+        challengeId: challenge.body.challengeId,
+      })
+      .expect(201);
+    return auth.body.accessToken;
+  };
 
   const stellar = {
     submitCredit: jest.fn().mockResolvedValue('tx-submit'),
@@ -42,6 +71,7 @@ describe('Day 15 E2E smoke flows', () => {
       certificates: [] as Array<Record<string, any>>,
       offers: [] as Array<Record<string, any>>,
       trades: [] as Array<Record<string, any>>,
+      challenges: [] as Array<Record<string, any>>,
     };
     let sequence = 1;
     const id = (prefix: string) => `${prefix}-${sequence++}`;
@@ -163,11 +193,32 @@ describe('Day 15 E2E smoke flows', () => {
       },
       offer: { deleteMany: jest.fn(() => reset(state.offers)) },
       trade: { deleteMany: jest.fn(() => reset(state.trades)) },
+      challenge: {
+        deleteMany: jest.fn(() => reset(state.challenges)),
+        create: jest.fn(({ data }) => {
+          const challenge = { id: id('challenge'), createdAt: now(), ...data };
+          state.challenges.push(challenge);
+          return challenge;
+        }),
+        findUnique: jest.fn(({ where }) =>
+          state.challenges.find((c) => c.id === where.id) ?? null,
+        ),
+        update: jest.fn(({ where, data }) => {
+          const challenge = state.challenges.find((c) => c.id === where.id);
+          if (!challenge) return null;
+          Object.assign(challenge, data);
+          return challenge;
+        }),
+      },
     };
   }
 
   beforeAll(async () => {
     process.env.VERIFIER_THRESHOLD = '1';
+    process.env.JWT_SECRET = 'e2e-jwt-secret';
+    process.env.SEP10_SIGNING_KEY = serverKeypair.secret();
+    process.env.SEP10_HOME_DOMAIN = 'api.carbonveritas.io';
+    process.env.STELLAR_NETWORK_PASSPHRASE = networkPassphrase;
     const moduleFixture: TestingModule = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(PrismaService)
       .useValue(createInMemoryPrisma())
@@ -191,20 +242,13 @@ describe('Day 15 E2E smoke flows', () => {
     await prisma.certificate.deleteMany();
     await prisma.verifier.deleteMany();
     await prisma.credit.deleteMany();
+    await prisma.challenge.deleteMany();
     await prisma.user.deleteMany();
 
-    const auth = await request(app.getHttpServer())
-      .post('/auth/token')
-      .send({ wallet: 'GDAY15USER111111111111111111111111111111111111111', signedChallenge: 'signed-user-challenge' })
-      .expect(201);
-    token = auth.body.accessToken;
+    token = await authenticate(userKeypair);
 
-    const verifier = await request(app.getHttpServer())
-      .post('/auth/token')
-      .send({ wallet: 'GDAY15VERIFIER111111111111111111111111111111111111', signedChallenge: 'signed-verifier-challenge' })
-      .expect(201);
-    verifierToken = verifier.body.accessToken;
-    const verifierUser = await prisma.user.findUnique({ where: { stellarPub: 'GDAY15VERIFIER111111111111111111111111111111111111' } });
+    verifierToken = await authenticate(verifierKeypair);
+    const verifierUser = await prisma.user.findUnique({ where: { stellarPub: verifierKeypair.publicKey() } });
     await prisma.verifier.create({ data: { userId: verifierUser!.id, stake: 50000, status: 'ACTIVE' } });
   });
 
@@ -215,9 +259,9 @@ describe('Day 15 E2E smoke flows', () => {
   it('runs challenge, token, credit issue, approval, listing, retirement, and certificate verification', async () => {
     await request(app.getHttpServer())
       .post('/auth/challenge')
-      .send({ wallet: 'GDAY15USER111111111111111111111111111111111111111' })
+      .send({ wallet: userKeypair.publicKey() })
       .expect(201)
-      .expect(({ body }) => expect(body.challenge).toContain('GDAY15USER'));
+      .expect(({ body }) => expect(body.transaction).toEqual(expect.any(String)));
 
     const issued = await request(app.getHttpServer())
       .post('/credits/issue')

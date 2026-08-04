@@ -205,3 +205,15 @@ model Webhook {
 
   @@index([userId])
 }
+
+model Challenge {
+  id          String    @id @default(cuid())
+  wallet      String
+  transaction String    @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([wallet])
+  @@index([expiresAt])
+}

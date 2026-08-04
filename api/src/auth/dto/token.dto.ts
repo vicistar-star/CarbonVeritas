@@ -11,4 +11,9 @@ export class TokenDto {
   @IsString()
   @IsNotEmpty()
   signedChallenge: string;
+
+  @ApiProperty({ description: 'Challenge id returned by /auth/challenge' })
+  @IsString()
+  @IsNotEmpty()
+  challengeId: string;
 }
