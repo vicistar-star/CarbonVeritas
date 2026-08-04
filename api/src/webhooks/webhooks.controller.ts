@@ -5,6 +5,7 @@ import {
   Delete,
   Param,
   Body,
+  Query,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { WebhooksService } from './webhooks.service';
@@ -30,6 +31,20 @@ export class WebhooksController {
   @ApiOperation({ summary: 'List registered webhooks' })
   async list(@CurrentUser() user: { id: string; wallet: string }) {
     return this.webhooksService.list(user.id);
+  }
+
+  @Get('deliveries')
+  @ApiOperation({ summary: 'List webhook delivery attempts for the user' })
+  async deliveries(
+    @CurrentUser() user: { id: string; wallet: string },
+    @Query('eventType') eventType?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const parsedLimit = limit ? parseInt(limit, 10) : 50;
+    return this.webhooksService.listDeliveries(user.id, {
+      eventType,
+      limit: Number.isFinite(parsedLimit) ? parsedLimit : 50,
+    });
   }
 
   @Delete(':id')

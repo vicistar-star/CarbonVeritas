@@ -67,6 +67,11 @@ export function createPrismaMock() {
       findUnique: jest.fn(),
       deleteMany: jest.fn(),
     },
+    webhookDelivery: {
+      create: jest.fn(),
+      findMany: jest.fn(),
+      deleteMany: jest.fn(),
+    },
     challenge: {
       create: jest.fn(),
       findUnique: jest.fn(),

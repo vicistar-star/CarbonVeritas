@@ -11,7 +11,9 @@ describe('Event → webhook chain', () => {
 
   beforeEach(() => {
     prisma = createPrismaMock();
-    webhooksService = new WebhooksService(prisma as never, {} as never);
+    webhooksService = new WebhooksService(prisma as never, {
+      get: () => undefined,
+    } as never);
     processor = new WebhookProcessor(webhooksService);
     emitter = new EventEmitterService(processor);
   });
@@ -55,13 +57,15 @@ describe('Event → webhook chain', () => {
       { id: 'wh-1', url: 'https://example.com/hook', secret: 'super-secret' },
     ]);
 
-    // Capture the dispatched payload by spying on node-fetch
-    const dispatch = jest
-      .spyOn(webhooksService as unknown as { dispatch: () => Promise<unknown> }, 'dispatch' as never)
-      .mockResolvedValue({ status: 200 });
+    const dispatch = jest.fn().mockResolvedValue({ status: 200 });
+    (webhooksService as unknown as { dispatch: typeof dispatch }).dispatch = dispatch;
 
     await webhooksService.dispatchEvent('credit.retired', { creditId: 3 });
 
     expect(dispatch).toHaveBeenCalledTimes(1);
+    const [url, payload, signature] = dispatch.mock.calls[0];
+    expect(url).toBe('https://example.com/hook');
+    expect(payload.event).toBe('credit.retired');
+    expect(signature).toMatch(/^[0-9a-f]{64}$/);
   });
 });
