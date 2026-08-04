@@ -1,19 +1,18 @@
 import { Controller, Get } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Public } from './auth/public.decorator';
 
-@ApiTags('Health')
+@ApiTags('Service')
 @Controller()
 export class AppController {
   @Public()
-  @Get('health')
-  @ApiOperation({ summary: 'Health check' })
-  getHealth() {
+  @Get()
+  @ApiOperation({ summary: 'Service info' })
+  getInfo() {
     return {
-      status: 'ok',
+      name: 'carbonveritas-api',
       version: '1.0.0',
       network: process.env.STELLAR_NETWORK ?? 'testnet',
-      timestamp: new Date().toISOString(),
     };
   }
 }

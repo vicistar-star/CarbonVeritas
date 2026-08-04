@@ -315,4 +315,27 @@ describe('Day 15 E2E smoke flows', () => {
       .expect(201)
       .expect(({ body }) => expect(body.valid).toBe(true));
   });
+
+  it('exposes deep health and Prometheus metrics publicly', async () => {
+    await request(app.getHttpServer())
+      .get('/health')
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.status).toBe('ok');
+        expect(body.checks).toEqual([
+          { name: 'database', status: 'ok' },
+          { name: 'stellar-network', status: 'ok', detail: 'not configured' },
+        ]);
+        expect(body.timestamp).toBeDefined();
+      });
+
+    await request(app.getHttpServer())
+      .get('/metrics')
+      .expect(200)
+      .expect('Content-Type', /text\/plain/)
+      .expect((res) => {
+        expect(res.text).toContain('http_requests_total');
+        expect(res.text).toContain('http_request_duration_ms');
+      });
+  });
 });

@@ -14,6 +14,8 @@ describe('Event → webhook chain', () => {
     webhooksService = new WebhooksService(prisma as never, {
       get: () => undefined,
     } as never);
+    const dispatch = jest.fn().mockResolvedValue({ status: 200 });
+    (webhooksService as unknown as { dispatch: typeof dispatch }).dispatch = dispatch;
     processor = new WebhookProcessor(webhooksService);
     emitter = new EventEmitterService(processor);
   });

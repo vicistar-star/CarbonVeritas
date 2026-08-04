@@ -18,6 +18,8 @@ import { CertificatesModule } from './certificates/certificates.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { EventEmitterModule } from './events/event-emitter.module';
 import { AdminModule } from './admin/admin.module';
+import { ObservabilityModule } from './observability/observability.module';
+import { MetricsInterceptor } from './observability/metrics.interceptor';
 
 @Module({
   imports: [
@@ -37,6 +39,7 @@ import { AdminModule } from './admin/admin.module';
     WebhooksModule,
     EventEmitterModule,
     AdminModule,
+    ObservabilityModule,
   ],
   controllers: [AppController],
   providers: [
@@ -47,6 +50,10 @@ import { AdminModule } from './admin/admin.module';
     {
       provide: APP_INTERCEPTOR,
       useClass: LoggingInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: MetricsInterceptor,
     },
     {
       provide: APP_GUARD,
