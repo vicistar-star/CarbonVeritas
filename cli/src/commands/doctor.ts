@@ -27,10 +27,13 @@ export function registerDoctorCommand(program: Command): void {
       // API health check
       try {
         const health = await client.health();
+        const details = health.checks
+          .map((check) => `${check.name}:${check.status}`)
+          .join(', ');
         results.push({
           name: 'API',
           status: 'ok',
-          detail: `${health.status} v${health.version} (${health.network})`,
+          detail: `${health.status} (${details})`,
         });
       } catch (err: unknown) {
         results.push({
@@ -42,11 +45,11 @@ export function registerDoctorCommand(program: Command): void {
 
       // List credits check
       try {
-        const { meta } = await client.get('/credits?limit=1');
+        const res = await client.get<{ meta: { total: number } }>('/credits', { limit: 1 });
         results.push({
           name: 'Database',
           status: 'ok',
-          detail: `${meta.total} credits indexed`,
+          detail: `${res.meta.total} credits indexed`,
         });
       } catch (err: unknown) {
         results.push({

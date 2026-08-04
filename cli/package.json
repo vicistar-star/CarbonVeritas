@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "bin": {
-    "cv": "./dist/index.js"
+    "cv": "./dist/index.mjs"
   },
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --clean",

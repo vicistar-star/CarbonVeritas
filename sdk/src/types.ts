@@ -228,3 +228,63 @@ export interface TokenResponse {
   accessToken: string;
   wallet: string;
 }
+
+export interface ChallengeResponse {
+  challengeId: string;
+  transaction: string;
+}
+
+export interface DeepHealthCheck {
+  name: string;
+  status: 'ok' | 'error';
+  detail?: string;
+}
+
+export interface DeepHealth {
+  status: 'ok' | 'degraded' | 'down';
+  checks: DeepHealthCheck[];
+  timestamp: string;
+}
+
+export interface Webhook {
+  id: string;
+  url: string;
+  secret?: string;
+  events: string[];
+  active: boolean;
+  createdAt: string;
+}
+
+export interface WebhookDelivery {
+  id: string;
+  webhookId: string;
+  eventType: string;
+  payload: unknown;
+  success: boolean;
+  attempts: number;
+  statusCode: number | null;
+  durationMs: number;
+  error: string | null;
+  createdAt: string;
+}
+
+export interface ProtocolConfig {
+  admin: string;
+  verifierThreshold: number;
+  verifierQuorum: number;
+  approvalWindow: number;
+  protocolFeeBps: number;
+  bufferPoolPct: number;
+}
+
+export interface SystemStatus {
+  network: { connected: boolean; sequence?: number; ledgerHash?: string };
+  counts: {
+    users: number;
+    credits: number;
+    verifiers: number;
+    offers: number;
+    retirements: number;
+    webhooks: number;
+  };
+}

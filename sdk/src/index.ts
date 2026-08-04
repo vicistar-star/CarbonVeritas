@@ -1,16 +1,10 @@
-export { CarbonVeritasClient } from './client';
-export { CreditsModule } from './credits';
-export { MarketplaceModule } from './marketplace';
-export { RetirementModule } from './retirement';
-export { CertificatesModule } from './certificates';
-
-export * from './types';
-
 import { CarbonVeritasClient } from './client';
 import { CreditsModule } from './credits';
 import { MarketplaceModule } from './marketplace';
 import { RetirementModule } from './retirement';
 import { CertificatesModule } from './certificates';
+import { WebhooksModule } from './webhooks';
+import { AdminModule } from './admin';
 import type { SdkConfig } from './types';
 
 export class CarbonVeritasSDK {
@@ -19,6 +13,8 @@ export class CarbonVeritasSDK {
   public marketplace: MarketplaceModule;
   public retirement: RetirementModule;
   public certificates: CertificatesModule;
+  public webhooks: WebhooksModule;
+  public admin: AdminModule;
 
   constructor(config: SdkConfig = {}) {
     this.client = new CarbonVeritasClient(config);
@@ -26,7 +22,19 @@ export class CarbonVeritasSDK {
     this.marketplace = new MarketplaceModule(this.client);
     this.retirement = new RetirementModule(this.client);
     this.certificates = new CertificatesModule(this.client);
+    this.webhooks = new WebhooksModule(this.client);
+    this.admin = new AdminModule(this.client);
   }
 }
+
+export { CarbonVeritasClient } from './client';
+export { CreditsModule } from './credits';
+export { MarketplaceModule } from './marketplace';
+export { RetirementModule } from './retirement';
+export { CertificatesModule } from './certificates';
+export { WebhooksModule } from './webhooks';
+export { AdminModule } from './admin';
+
+export * from './types';
 
 export default CarbonVeritasSDK;

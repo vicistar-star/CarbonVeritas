@@ -5,6 +5,8 @@ import { registerMarketplaceCommands } from './commands/marketplace';
 import { registerRetireCommands } from './commands/retire';
 import { registerVerifyCommands } from './commands/verify';
 import { registerDoctorCommand } from './commands/doctor';
+import { registerWebhookCommands } from './commands/webhooks';
+import { registerAdminCommands } from './commands/admin';
 
 const program = new Command();
 
@@ -27,5 +29,7 @@ registerMarketplaceCommands(program);
 registerRetireCommands(program);
 registerVerifyCommands(program);
 registerDoctorCommand(program);
+registerWebhookCommands(program);
+registerAdminCommands(program);
 
 program.parse(process.argv);
