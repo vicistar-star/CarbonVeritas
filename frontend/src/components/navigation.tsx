@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useWallet } from '@/hooks/use-wallet';
 import { WalletConnector } from '@/components/wallet-connector';
 import { cn } from '@/lib/utils';
-import { Leaf, Store, Trophy, Users } from 'lucide-react';
+import { Leaf, Store, Trophy, Users, Webhook } from 'lucide-react';
 
 const publicLinks = [
   { href: '/', label: 'Market', icon: Leaf },
@@ -16,6 +16,7 @@ const publicLinks = [
 const authLinks = [
   { href: '/portfolio', label: 'Portfolio', icon: Trophy },
   { href: '/retire', label: 'Retire', icon: Users },
+  { href: '/webhooks', label: 'Webhooks', icon: Webhook },
 ];
 
 export function Navigation() {

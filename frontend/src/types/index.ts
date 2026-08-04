@@ -131,3 +131,73 @@ export interface ProtocolStats {
   activeVerifiers: number;
   totalOffers: number;
 }
+
+export interface DeepHealthCheck {
+  name: string;
+  status: 'up' | 'down' | 'not_configured';
+  latencyMs?: number;
+  detail?: string;
+}
+
+export interface DeepHealth {
+  status: 'ok' | 'degraded';
+  checks: DeepHealthCheck[];
+  timestamp: string;
+}
+
+export interface AuthChallenge {
+  challengeId: string;
+  transaction: string;
+}
+
+export interface AuthSession {
+  accessToken: string;
+  refreshToken: string;
+}
+
+export interface Webhook {
+  id: string;
+  url: string;
+  secret?: string;
+  events: string[];
+  active: boolean;
+  createdAt: string;
+}
+
+export interface WebhookDelivery {
+  id: string;
+  webhookId: string;
+  eventType: string;
+  payload: unknown;
+  success: boolean;
+  attempts: number;
+  statusCode: number | null;
+  durationMs: number;
+  error: string | null;
+  createdAt: string;
+}
+
+export interface ProtocolConfig {
+  admin: string;
+  verifierThreshold: number;
+  verifierQuorum: number;
+  approvalWindow: number;
+  protocolFeeBps: number;
+  bufferPoolPct: number;
+}
+
+export interface AdminContracts {
+  [key: string]: string | null;
+}
+
+export interface SystemStatus {
+  network: { connected: boolean; sequence?: number; ledgerHash?: string };
+  counts: {
+    users: number;
+    credits: number;
+    verifiers: number;
+    offers: number;
+    retirements: number;
+    webhooks: number;
+  };
+}

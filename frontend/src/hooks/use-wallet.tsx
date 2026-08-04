@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import * as freighter from '@/lib/freighter';
-import { setAuthToken } from '@/lib/api';
+import { setAuthToken, requestAuthChallenge, submitAuthChallenge } from '@/lib/api';
 import type { WalletInfo } from '@/lib/freighter';
 
 interface WalletContextType {
@@ -46,8 +46,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     try {
       const info = await freighter.connectWallet();
       setWallet(info);
-      // In production, you'd get a real JWT from the API via SEP-10
-      setAuthToken('demo-token');
+
+      const { challengeId, transaction } = await requestAuthChallenge(info.publicKey);
+      const signedChallenge = await freighter.signTransaction(transaction);
+      const session = await submitAuthChallenge(info.publicKey, signedChallenge, challengeId);
+      setAuthToken(session.accessToken);
     } catch (err) {
       console.error('Failed to connect wallet:', err);
       throw err;

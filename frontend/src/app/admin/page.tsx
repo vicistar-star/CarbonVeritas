@@ -2,7 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useWallet } from '@/hooks/use-wallet';
-import { getVerifiers } from '@/lib/api';
+import {
+  getVerifiers,
+  getProtocolConfig,
+  updateProtocolConfig,
+  getSystemStatus,
+  getAdminContracts,
+} from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -28,7 +34,7 @@ import {
   Plus,
   Trash2,
 } from 'lucide-react';
-import type { Verifier } from '@/types';
+import type { Verifier, ProtocolConfig, SystemStatus, AdminContracts } from '@/types';
 
 export default function AdminPage() {
   const { wallet } = useWallet();
@@ -38,8 +44,15 @@ export default function AdminPage() {
   // Config state
   const [feeBps, setFeeBps] = useState('50');
   const [threshold, setThreshold] = useState('2');
+  const [quorum, setQuorum] = useState('2');
+  const [approvalWindow, setApprovalWindow] = useState('2592000');
   const [bufferPct, setBufferPct] = useState('10');
   const [configSaving, setConfigSaving] = useState(false);
+  const [config, setConfig] = useState<ProtocolConfig | null>(null);
+
+  // System state
+  const [system, setSystem] = useState<SystemStatus | null>(null);
+  const [contracts, setContracts] = useState<AdminContracts | null>(null);
 
   // Verifier management
   const [showSlashDialog, setShowSlashDialog] = useState(false);
@@ -61,19 +74,43 @@ export default function AdminPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    getVerifiers()
-      .then(setVerifiers)
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    Promise.allSettled([
+      getVerifiers(),
+      getProtocolConfig(),
+      getSystemStatus(),
+      getAdminContracts(),
+    ]).then(([v, c, s, ct]) => {
+      if (v.status === 'fulfilled') setVerifiers(v.value);
+      if (c.status === 'fulfilled') {
+        setConfig(c.value);
+        setFeeBps(String(c.value.protocolFeeBps ?? 50));
+        setThreshold(String(c.value.verifierThreshold ?? 2));
+        setQuorum(String(c.value.verifierQuorum ?? 2));
+        setApprovalWindow(String(c.value.approvalWindow ?? 2592000));
+        setBufferPct(String(c.value.bufferPoolPct ?? 10));
+      }
+      if (s.status === 'fulfilled') setSystem(s.value);
+      if (ct.status === 'fulfilled') setContracts(ct.value);
+      setLoading(false);
+    });
   }, []);
 
   const handleSaveConfig = async () => {
     setConfigSaving(true);
     setError(null);
     try {
-      await new Promise((r) => setTimeout(r, 500));
-      // In production: call API to update contract config
-    } catch {
+      const updated = await updateProtocolConfig({
+        verifierThreshold: Number(threshold),
+        verifierQuorum: Number(quorum),
+        approvalWindow: Number(approvalWindow),
+        protocolFeeBps: Number(feeBps),
+        bufferPoolPct: Number(bufferPct),
+      });
+      if (!updated) {
+        setError('Failed to update protocol config on-chain.');
+      }
+    } catch (err) {
+      console.error(err);
       setError('Failed to save configuration.');
     } finally {
       setConfigSaving(false);
@@ -177,6 +214,10 @@ export default function AdminPage() {
             <Gauge className="h-4 w-4 mr-2" />
             Configuration
           </TabsTrigger>
+          <TabsTrigger value="system">
+            <Settings className="h-4 w-4 mr-2" />
+            System
+          </TabsTrigger>
           <TabsTrigger value="verifiers">
             <Shield className="h-4 w-4 mr-2" />
             Verifiers
@@ -197,7 +238,7 @@ export default function AdminPage() {
               <CardTitle>Contract Configuration</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium">Protocol Fee (BPS)</label>
                   <Input
@@ -206,13 +247,14 @@ export default function AdminPage() {
                     onChange={(e) => setFeeBps(e.target.value)}
                     className="mt-1"
                   />
-                  <p className="text-xs text-muted-foreground mt-1">Current: 50 BPS (0.5%)</p>
+                  <p className="text-xs text-muted-foreground mt-1">0 – 1000 BPS (0–10%)</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium">Verifier Threshold</label>
                   <Input
                     type="number"
                     min={1}
+                    max={20}
                     value={threshold}
                     onChange={(e) => setThreshold(e.target.value)}
                     className="mt-1"
@@ -220,11 +262,34 @@ export default function AdminPage() {
                   <p className="text-xs text-muted-foreground mt-1">Approvals required to mint</p>
                 </div>
                 <div>
+                  <label className="text-sm font-medium">Verifier Quorum</label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={quorum}
+                    onChange={(e) => setQuorum(e.target.value)}
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Minimum verifiers to keep stake</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Approval Window (seconds)</label>
+                  <Input
+                    type="number"
+                    min={3600}
+                    value={approvalWindow}
+                    onChange={(e) => setApprovalWindow(e.target.value)}
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">e.g. 2592000 = 30 days</p>
+                </div>
+                <div>
                   <label className="text-sm font-medium">Buffer Pool (%)</label>
                   <Input
                     type="number"
                     min={0}
-                    max={100}
+                    max={50}
                     value={bufferPct}
                     onChange={(e) => setBufferPct(e.target.value)}
                     className="mt-1"
@@ -232,10 +297,86 @@ export default function AdminPage() {
                   <p className="text-xs text-muted-foreground mt-1">Percentage held in buffer</p>
                 </div>
               </div>
+              <div className="text-sm text-muted-foreground">
+                Admin: <span className="font-mono text-xs">{config?.admin ?? 'n/a'}</span>
+              </div>
               <Button onClick={handleSaveConfig} disabled={configSaving}>
                 {configSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                 Save Configuration
               </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="system" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Network</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm space-y-2">
+              <div className="flex items-center gap-2">
+                <span
+                  className={`inline-block h-2 w-2 rounded-full ${
+                    system?.network.connected ? 'bg-emerald-500' : 'bg-red-500'
+                  }`}
+                />
+                <span>
+                  Soroban RPC:{' '}
+                  <strong>{system?.network.connected ? 'Connected' : 'Disconnected'}</strong>
+                </span>
+              </div>
+              {system?.network.sequence ? (
+                <p className="text-muted-foreground">
+                  Latest ledger: <span className="font-mono">#{system.network.sequence}</span>
+                </p>
+              ) : null}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Protocol Counts</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {system ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-center">
+                  {[
+                    ['Users', system.counts.users],
+                    ['Credits', system.counts.credits],
+                    ['Verifiers', system.counts.verifiers],
+                    ['Offers', system.counts.offers],
+                    ['Retirements', system.counts.retirements],
+                    ['Webhooks', system.counts.webhooks],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-lg border bg-muted/30 p-4">
+                      <div className="text-2xl font-bold">{value}</div>
+                      <div className="text-xs text-muted-foreground mt-1">{label}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">System status unavailable.</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Contract Addresses</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {contracts && Object.keys(contracts).length > 0 ? (
+                <div className="space-y-2 text-sm">
+                  {Object.entries(contracts).map(([key, value]) => (
+                    <div key={key} className="flex items-center justify-between gap-4">
+                      <span className="text-muted-foreground">{key}</span>
+                      <span className="font-mono text-xs truncate">{value ?? 'not configured'}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Contract addresses unavailable.</p>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

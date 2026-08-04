@@ -4,6 +4,7 @@ dist/
 .turbo/
 target/
 *.wasm
+*.tsbuildinfo
 
 .env
 .env.local
