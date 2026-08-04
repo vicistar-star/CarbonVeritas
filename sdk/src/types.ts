@@ -1,3 +1,5 @@
+import type { AxiosRequestConfig } from 'axios';
+
 export interface Credit {
   id: string;
   creditId: number;
@@ -222,6 +224,7 @@ export interface MarketplaceFilter {
 export interface SdkConfig {
   apiUrl?: string;
   network?: 'testnet' | 'mainnet' | 'futurenet';
+  adapter?: AxiosRequestConfig['adapter'];
 }
 
 export interface TokenResponse {

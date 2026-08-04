@@ -18,6 +18,7 @@ export class CarbonVeritasClient {
       baseURL: this._apiUrl,
       timeout: 15000,
       headers: { 'Content-Type': 'application/json' },
+      ...(config.adapter ? { adapter: config.adapter } : {}),
     });
 
     this.http.interceptors.request.use((req) => {
