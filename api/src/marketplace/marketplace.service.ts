@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { StellarService } from '../stellar/stellar.service';
+import { EventEmitterService } from '../events/event-emitter.service';
 import { CreateOfferDto } from './dto/create-offer.dto';
 import { MarketplaceFilterDto } from './dto/marketplace-filter.dto';
 
@@ -17,6 +18,7 @@ export class MarketplaceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly stellar: StellarService,
+    private readonly events: EventEmitterService,
   ) {}
 
   async createOffer(userId: string, wallet: string, dto: CreateOfferDto) {
@@ -82,6 +84,15 @@ export class MarketplaceService {
     });
 
     this.logger.log(`Offer created: id=${offerId}, creditId=${dto.creditId}, onChainId=${onChainOfferId}`);
+
+    await this.events.emit('marketplace.offer.created', {
+      offerId,
+      onChainOfferId,
+      creditId: dto.creditId,
+      seller: wallet,
+      pricePerTonne: dto.pricePerTonne,
+      amount: dto.amount,
+    });
 
     return offer;
   }
@@ -155,6 +166,15 @@ export class MarketplaceService {
 
     this.logger.log(`Buy: offerId=${offerId}, buyer=${wallet}, amount=${amount}, total=${totalPrice}`);
 
+    await this.events.emit('marketplace.offer.filled', {
+      offerId,
+      buyer: wallet,
+      seller: offer.sellerId,
+      amount,
+      totalPrice,
+      status: isFilled ? 'FILLED' : 'PARTIAL',
+    });
+
     return trade;
   }
 
@@ -181,6 +201,12 @@ export class MarketplaceService {
     });
 
     this.logger.log(`Offer cancelled: offerId=${offerId}`);
+
+    await this.events.emit('marketplace.offer.cancelled', {
+      offerId,
+      caller: userId,
+    });
+
     return cancelled;
   }
 

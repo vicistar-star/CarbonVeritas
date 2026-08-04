@@ -91,3 +91,9 @@ export function createStellarMock() {
     getCertificateHash: jest.fn(),
   };
 }
+
+export function createEventsMock() {
+  return {
+    emit: jest.fn().mockResolvedValue(undefined),
+  };
+}

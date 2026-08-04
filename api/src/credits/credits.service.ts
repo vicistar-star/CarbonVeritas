@@ -8,6 +8,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { StellarService } from '../stellar/stellar.service';
 import { IpfsService } from '../ipfs/ipfs.service';
+import { EventEmitterService } from '../events/event-emitter.service';
 import { CreateCreditDto } from './dto/create-credit.dto';
 import { ApproveCreditDto } from './dto/approve-credit.dto';
 import { RejectCreditDto } from './dto/reject-credit.dto';
@@ -21,6 +22,7 @@ export class CreditsService {
     private readonly prisma: PrismaService,
     private readonly stellar: StellarService,
     private readonly ipfs: IpfsService,
+    private readonly events: EventEmitterService,
   ) {}
 
   async issueCredit(userId: string, wallet: string, dto: CreateCreditDto) {
@@ -97,6 +99,14 @@ export class CreditsService {
 
     this.logger.log(`Credit issued: id=${credit.creditId}, tx=${txHash}`);
 
+    await this.events.emit('credit.submitted', {
+      creditId: credit.creditId,
+      issuer: wallet,
+      ipfsHash,
+      txHash,
+      projectId: dto.projectId,
+    });
+
     return credit;
   }
 
@@ -149,6 +159,18 @@ export class CreditsService {
       await this.prisma.credit.update({
         where: { creditId },
         data: { status: 'ACTIVE', tokenId: txHash },
+      });
+    }
+
+    await this.events.emit('credit.approved', {
+      creditId,
+      verifier: wallet,
+      comments: dto.comments,
+    });
+    if (totalApprovals >= threshold && txHash) {
+      await this.events.emit('credit.minted', {
+        creditId,
+        tokenId: txHash,
       });
     }
 
@@ -213,6 +235,12 @@ export class CreditsService {
         data: { status: 'REJECTED' },
       });
     }
+
+    await this.events.emit('credit.rejected', {
+      creditId,
+      verifier: wallet,
+      reason: dto.reason,
+    });
 
     return this.prisma.credit.findUnique({
       where: { creditId },

@@ -1,16 +1,18 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { VerifiersService } from '../../src/verifiers/verifiers.service';
-import { createPrismaMock, createStellarMock } from './service-mocks';
+import { createPrismaMock, createStellarMock, createEventsMock } from './service-mocks';
 
 describe('VerifiersService', () => {
   let prisma: ReturnType<typeof createPrismaMock>;
   let stellar: ReturnType<typeof createStellarMock>;
+  let events: ReturnType<typeof createEventsMock>;
   let service: VerifiersService;
 
   beforeEach(() => {
     prisma = createPrismaMock();
     stellar = createStellarMock();
-    service = new VerifiersService(prisma as never, stellar as never);
+    events = createEventsMock();
+    service = new VerifiersService(prisma as never, stellar as never, events as never);
   });
 
   it('registers a verifier after staking on-chain', async () => {

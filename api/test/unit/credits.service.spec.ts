@@ -1,11 +1,12 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { CreditsService } from '../../src/credits/credits.service';
-import { createPrismaMock, createStellarMock } from './service-mocks';
+import { createPrismaMock, createStellarMock, createEventsMock } from './service-mocks';
 
 describe('CreditsService', () => {
   const user = { id: 'user-1', stellarPub: 'GUSER' };
   let prisma: ReturnType<typeof createPrismaMock>;
   let stellar: ReturnType<typeof createStellarMock>;
+  let events: ReturnType<typeof createEventsMock>;
   let ipfs: { pinJson: jest.Mock };
   let service: CreditsService;
 
@@ -13,7 +14,8 @@ describe('CreditsService', () => {
     prisma = createPrismaMock();
     stellar = createStellarMock();
     ipfs = { pinJson: jest.fn() };
-    service = new CreditsService(prisma as never, stellar as never, ipfs as never);
+    events = createEventsMock();
+    service = new CreditsService(prisma as never, stellar as never, ipfs as never, events as never);
     process.env.VERIFIER_THRESHOLD = '1';
   });
 
@@ -49,6 +51,10 @@ describe('CreditsService', () => {
     expect(prisma.credit.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ creditId: 1, status: 'PENDING', issuerId: user.id }),
     }));
+    expect(events.emit).toHaveBeenCalledWith(
+      'credit.submitted',
+      expect.objectContaining({ creditId: 1, ipfsHash: 'bafy123' }),
+    );
     expect(credit.serialPrefix).toBe('AMZ-001-VCSVM0-');
   });
 

@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { StellarService } from '../stellar/stellar.service';
+import { EventEmitterService } from '../events/event-emitter.service';
 import { RetireCreditDto } from './dto/retire-credit.dto';
 
 @Injectable()
@@ -15,6 +16,7 @@ export class RetirementService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly stellar: StellarService,
+    private readonly events: EventEmitterService,
   ) {}
 
   async retireCredit(
@@ -84,6 +86,16 @@ export class RetirementService {
     this.logger.log(
       `Credit retired: creditId=${creditId}, tonnes=${tonnesRetired}, beneficiary=${dto.beneficiary}`,
     );
+
+    await this.events.emit('credit.retired', {
+      creditId,
+      owner: wallet,
+      beneficiary: dto.beneficiary,
+      reason: dto.reason,
+      accountingPeriod: dto.accountingPeriod,
+      tonnesRetired,
+      txHash: result.txHash as string,
+    });
 
     return {
       ...retirement,

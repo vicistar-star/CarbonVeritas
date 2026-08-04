@@ -1,16 +1,18 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { MarketplaceService } from '../../src/marketplace/marketplace.service';
-import { createPrismaMock, createStellarMock } from './service-mocks';
+import { createPrismaMock, createStellarMock, createEventsMock } from './service-mocks';
 
 describe('MarketplaceService', () => {
   let prisma: ReturnType<typeof createPrismaMock>;
   let stellar: ReturnType<typeof createStellarMock>;
+  let events: ReturnType<typeof createEventsMock>;
   let service: MarketplaceService;
 
   beforeEach(() => {
     prisma = createPrismaMock();
     stellar = createStellarMock();
-    service = new MarketplaceService(prisma as never, stellar as never);
+    events = createEventsMock();
+    service = new MarketplaceService(prisma as never, stellar as never, events as never);
   });
 
   it('creates an offer for an active owned credit', async () => {

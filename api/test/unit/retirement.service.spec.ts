@@ -1,16 +1,18 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { RetirementService } from '../../src/retirement/retirement.service';
-import { createPrismaMock, createStellarMock } from './service-mocks';
+import { createPrismaMock, createStellarMock, createEventsMock } from './service-mocks';
 
 describe('RetirementService', () => {
   let prisma: ReturnType<typeof createPrismaMock>;
   let stellar: ReturnType<typeof createStellarMock>;
+  let events: ReturnType<typeof createEventsMock>;
   let service: RetirementService;
 
   beforeEach(() => {
     prisma = createPrismaMock();
     stellar = createStellarMock();
-    service = new RetirementService(prisma as never, stellar as never);
+    events = createEventsMock();
+    service = new RetirementService(prisma as never, stellar as never, events as never);
   });
 
   it('retires an active owned credit and marks it retired when fully consumed', async () => {

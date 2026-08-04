@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { StellarService } from '../stellar/stellar.service';
+import { EventEmitterService } from '../events/event-emitter.service';
 import { RegisterVerifierDto } from './dto/register-verifier.dto';
 
 @Injectable()
@@ -15,6 +16,7 @@ export class VerifiersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly stellar: StellarService,
+    private readonly events: EventEmitterService,
   ) {}
 
   async register(userId: string, wallet: string, dto: RegisterVerifierDto) {
@@ -46,6 +48,12 @@ export class VerifiersService {
     });
 
     this.logger.log(`Verifier registered: userId=${userId}, wallet=${wallet}, stake=${dto.stake}`);
+
+    await this.events.emit('verifier.registered', {
+      userId,
+      wallet,
+      stake: dto.stake,
+    });
 
     return verifier;
   }
