@@ -1039,6 +1039,25 @@ Interactive Swagger UI: `https://api.carbonveritas.io/v1/docs`
 
 ---
 
+### Reporting
+
+Export the authenticated wallet's retired credits as a GHG Protocol Scope 3 inventory for ESG and corporate accounting:
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/reporting/scope3` | Required | Scope 3 inventory as JSON or CSV |
+
+**Query Parameters**
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `format` | `json` \| `csv` | `json` | Response format |
+| `year` | number | all | Restrict to retirements in a calendar year |
+
+The JSON report aggregates retirements into a summary (total tonnes retired, retirement count, unique credits, and breakdowns by methodology, geography, and vintage) plus a line-item ledger carrying on-chain identifiers (`txHash`, `ledgerSequence`, `certificateHash`) for auditability. CSV exports are BOM-prefixed for Excel compatibility. Also available from the SDK (`sdk.reporting`), CLI (`cv reporting scope3`), and frontend (`/reporting`).
+
+---
+
 ### Webhooks
 
 Register webhook endpoints to receive real-time notifications:
@@ -1086,6 +1105,7 @@ The Next.js 14 frontend provides a full-featured interface for all protocol inte
 | `/certificates/[id]` | Public certificate verification page |
 | `/verifier` | Verifier dashboard: pending approvals, reputation |
 | `/portfolio` | Wallet portfolio: owned credits, trade history, certificates |
+| `/reporting` | GHG Protocol Scope 3 export: summary, breakdowns, JSON/CSV download |
 | `/admin` | Admin panel: contract configuration, verifier management |
 
 ### Wallet Integration
@@ -1963,18 +1983,22 @@ Alerts are configured via PagerDuty for:
 - SDK v1.0 (`@carbonveritas/sdk`)
 - 94% test coverage
 
-### 🔄 In Progress (Q1 2026)
+### ✅ Completed (Q1–Q2 2026)
 
-- Marketplace contract + Stellar DEX integration
 - Next.js frontend application
 - Retirement certificate PDF generator
 - Verifier dashboard
 - VerifierStake contract
+- GHG Protocol Scope 3 export format (API, SDK, CLI, and frontend)
+
+### 🔄 In Progress (Q2 2026)
+
+- Marketplace contract + Stellar DEX integration
 - Hacken audit (Marketplace)
 - Live demo environment (`testnet.carbonveritas.io`)
 - Documentation site (`docs.carbonveritas.io`)
 
-### 📅 Planned (Q2 2026)
+### 📅 Planned (Q3 2026)
 
 - MerkleBridge for Verra and Gold Standard credits
 - RevenueSplit automated distribution
@@ -1983,7 +2007,6 @@ Alerts are configured via PagerDuty for:
 - Mainnet launch
 - Corporate bulk API (rate limits 10×)
 - CORSIA methodology flags
-- GHG Protocol Scope 3 export format
 
 ### 🗺️ Future (Q3–Q4 2026)
 

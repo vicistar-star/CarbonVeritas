@@ -14,3 +14,5 @@ target/
 .DS_Store
 coverage/
 Plan.md
+playwright-report/
+test-results/

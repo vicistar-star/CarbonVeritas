@@ -65,6 +65,9 @@ Main entry point with modules:
 | `sdk.marketplace` | Marketplace operations |
 | `sdk.retirement` | Credit retirement operations |
 | `sdk.certificates` | Certificate operations |
+| `sdk.webhooks` | Webhook endpoint management |
+| `sdk.reporting` | GHG Protocol Scope 3 inventory exports |
+| `sdk.admin` | Protocol governance |
 | `sdk.client` | Low-level client (auth, health, raw requests) |
 
 ### CarbonVeritasClient
@@ -115,3 +118,18 @@ Low-level HTTP client. Methods:
 - `getDownloadUrl(id)` — Get PDF URL
 - `verify(certificateHash)` — Verify certificate hash on-chain
 - `getOwned()` — Get user's certificates
+
+### ReportingModule
+
+- `getScope3Report(query?)` — Get GHG Protocol Scope 3 inventory as JSON
+- `downloadScope3Csv(query?)` — Download the Scope 3 inventory as BOM-prefixed CSV
+- `getScope3CsvUrl(query?)` — Prebuilt CSV download URL
+
+Query options: `{ format?: 'json' | 'csv', year?: number }`.
+
+```typescript
+const report = await sdk.reporting.getScope3Report({ year: 2026 });
+console.log(report.summary.totalTonnesRetired);
+
+const csv = await sdk.reporting.downloadScope3Csv({ year: 2026 });
+```

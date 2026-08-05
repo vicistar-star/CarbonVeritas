@@ -17,6 +17,7 @@ import type {
   ProtocolConfig,
   AdminContracts,
   SystemStatus,
+  Scope3Report,
 } from '@/types';
 
 let apiInstance: AxiosInstance | null = null;
@@ -259,6 +260,31 @@ export async function getPriceHistory(
 ): Promise<{ data: import('@/types').PricePoint[] }> {
   const res = await getApi().get('/marketplace/price-history', { params: { range } });
   return res.data;
+}
+
+// Reporting
+export async function getScope3Report(year?: number): Promise<Scope3Report> {
+  const res = await getApi().get('/reporting/scope3', {
+    params: year ? { format: 'json', year } : { format: 'json' },
+  });
+  return res.data;
+}
+
+export function getScope3CsvUrl(year?: number): string {
+  const params = new URLSearchParams({ format: 'csv' });
+  if (year) params.set('year', String(year));
+  return `${getApi().defaults.baseURL}/reporting/scope3?${params.toString()}`;
+}
+
+export async function downloadScope3Csv(year?: number): Promise<string> {
+  const res = await fetch(getScope3CsvUrl(year), {
+    headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {},
+  });
+  if (!res.ok) {
+    throw new Error(`Scope 3 CSV export failed with status ${res.status}`);
+  }
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  return new TextDecoder('utf-8', { ignoreBOM: true }).decode(bytes);
 }
 
 // Protocol Stats

@@ -176,3 +176,12 @@ test('webhooks page is wallet-gated before endpoint management', async ({ page }
     page.getByText('Connect your wallet to manage webhook endpoints that receive CarbonVeritas events.'),
   ).toBeVisible();
 });
+
+test('reporting page is wallet-gated before Scope 3 export', async ({ page }) => {
+  await page.goto('/reporting');
+
+  await expect(page.getByRole('heading', { name: 'Reporting' })).toBeVisible();
+  await expect(
+    page.getByText('Connect your wallet to export your GHG Protocol Scope 3 inventory.'),
+  ).toBeVisible();
+});

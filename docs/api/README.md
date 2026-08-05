@@ -59,3 +59,31 @@ Standard HTTP status codes: 200 (success), 201 (created), 400 (validation), 401 
 | Authenticated | 1000 requests | 1 minute per wallet |
 
 Rate limit headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`.
+
+## Reporting (GHG Protocol Scope 3)
+
+Authenticated endpoint that exports the calling wallet's retired credits as a structured GHG Protocol Scope 3 inventory for ESG/corporate accounting.
+
+### `GET /reporting/scope3`
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `format` | `json` \| `csv` | `json` | Response format |
+| `year` | number | all | Restrict to retirements in a calendar year |
+
+**JSON response** contains a `summary` (total tonnes, retirement count, unique credits, and breakdowns by methodology, geography, and vintage) plus `lineItems`, one per retirement, each carrying the credit's serial prefix, the tonnes retired, and the on-chain identifiers (`txHash`, `ledgerSequence`, `certificateHash`) for auditability.
+
+**CSV response** (`format=csv`) is returned with `Content-Type: text/csv` and a UTF-8 BOM so it opens correctly in Excel. Columns: `credit_id, project_id, methodology, geography, vintage_start, vintage_end, serial_prefix, tonnes_retired, beneficiary, reason, accounting_period, retirement_date, tx_hash, ledger_sequence, certificate_hash`.
+
+Example:
+
+```bash
+# JSON inventory for 2026
+curl -H "Authorization: Bearer $JWT" \
+  "https://api-testnet.carbonveritas.io/v1/reporting/scope3?year=2026"
+
+# CSV export for accounting
+curl -H "Authorization: Bearer $JWT" \
+  "https://api-testnet.carbonveritas.io/v1/reporting/scope3?format=csv" \
+  -o scope3.csv
+```
