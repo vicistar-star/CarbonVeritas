@@ -5,6 +5,7 @@ import { RetirementModule } from './retirement';
 import { CertificatesModule } from './certificates';
 import { WebhooksModule } from './webhooks';
 import { AdminModule } from './admin';
+import { ReportingModule } from './reporting';
 import type { SdkConfig } from './types';
 
 export class CarbonVeritasSDK {
@@ -15,6 +16,7 @@ export class CarbonVeritasSDK {
   public certificates: CertificatesModule;
   public webhooks: WebhooksModule;
   public admin: AdminModule;
+  public reporting: ReportingModule;
 
   constructor(config: SdkConfig = {}) {
     this.client = new CarbonVeritasClient(config);
@@ -24,6 +26,7 @@ export class CarbonVeritasSDK {
     this.certificates = new CertificatesModule(this.client);
     this.webhooks = new WebhooksModule(this.client);
     this.admin = new AdminModule(this.client);
+    this.reporting = new ReportingModule(this.client);
   }
 }
 
@@ -34,6 +37,7 @@ export { RetirementModule } from './retirement';
 export { CertificatesModule } from './certificates';
 export { WebhooksModule } from './webhooks';
 export { AdminModule } from './admin';
+export { ReportingModule } from './reporting';
 
 export * from './types';
 

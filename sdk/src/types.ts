@@ -291,3 +291,51 @@ export interface SystemStatus {
     webhooks: number;
   };
 }
+
+export interface Scope3LineItem {
+  retirementId: string;
+  creditId: number;
+  projectId: string;
+  methodology: string;
+  geography: string;
+  vintageStart: string;
+  vintageEnd: string;
+  serialPrefix: string;
+  tonnesRetired: number;
+  beneficiary: string;
+  reason: string;
+  accountingPeriod: string;
+  retirementDate: string;
+  txHash: string;
+  ledgerSequence: number;
+  certificateHash: string | null;
+}
+
+export interface Scope3BreakdownEntry {
+  tonnes: number;
+  retirements: number;
+  [dimension: string]: string | number;
+}
+
+export interface Scope3Summary {
+  totalTonnesRetired: number;
+  totalRetirements: number;
+  totalCredits: number;
+  byMethodology: Scope3BreakdownEntry[];
+  byGeography: Scope3BreakdownEntry[];
+  byVintage: Scope3BreakdownEntry[];
+}
+
+export interface Scope3Report {
+  reportType: 'scope3';
+  reportingPeriod: string;
+  generatedAt: string;
+  account: { wallet: string };
+  summary: Scope3Summary;
+  lineItems: Scope3LineItem[];
+}
+
+export interface Scope3ReportQuery {
+  format?: 'json' | 'csv';
+  year?: number;
+}

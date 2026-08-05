@@ -2,6 +2,7 @@ import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { CarbonVeritasClient } from '../src/client';
 import { AdminModule } from '../src/admin';
 import { WebhooksModule } from '../src/webhooks';
+import { ReportingModule } from '../src/reporting';
 
 interface RecordedRequest {
   method?: string;
@@ -78,6 +79,43 @@ function makeHarness() {
           createdAt: '2026-08-01T00:00:00.000Z',
         },
       ];
+    } else if (url.endsWith('/reporting/scope3')) {
+      data = {
+        reportType: 'scope3',
+        reportingPeriod: 'all-time',
+        generatedAt: '2026-08-01T00:00:00.000Z',
+        account: { wallet: 'GWALLET' },
+        summary: {
+          totalTonnesRetired: 150,
+          totalRetirements: 2,
+          totalCredits: 2,
+          byMethodology: [
+            { methodology: 'VCS:VM0007', tonnes: 100, retirements: 1 },
+          ],
+          byGeography: [],
+          byVintage: [],
+        },
+        lineItems: [
+          {
+            retirementId: 'r-1',
+            creditId: 7,
+            projectId: 'P-001',
+            methodology: 'VCS:VM0007',
+            geography: 'BR',
+            vintageStart: '2024-01-01',
+            vintageEnd: '2024-12-31',
+            serialPrefix: 'VCS-',
+            tonnesRetired: 100,
+            beneficiary: 'NetZero Corp',
+            reason: 'Offset',
+            accountingPeriod: '2026-Q1',
+            retirementDate: '2026-06-01T00:00:00.000Z',
+            txHash: '0xtx1',
+            ledgerSequence: 42,
+            certificateHash: 'cert-1',
+          },
+        ],
+      };
     } else {
       data = {};
     }
@@ -243,5 +281,82 @@ describe('WebhooksModule', () => {
     await webhooks.deliveries();
 
     expect(requests[0].params).toEqual({});
+  });
+});
+
+describe('ReportingModule', () => {
+  it('fetches a scope 3 report with json format by default', async () => {
+    const { client, requests } = makeHarness();
+    const reporting = new ReportingModule(client);
+
+    const report = await reporting.getScope3Report();
+
+    expect(requests[0]).toMatchObject({ method: 'get', url: '/reporting/scope3' });
+    expect(requests[0].params).toEqual({ format: 'json' });
+    expect(report.reportType).toBe('scope3');
+    expect(report.summary.totalTonnesRetired).toBe(150);
+    expect(report.lineItems[0].beneficiary).toBe('NetZero Corp');
+  });
+
+  it('passes a year filter through as a query param', async () => {
+    const { client, requests } = makeHarness();
+    const reporting = new ReportingModule(client);
+
+    await reporting.getScope3Report({ year: 2026 });
+
+    expect(requests[0].params).toEqual({ format: 'json', year: 2026 });
+  });
+
+  it('builds a CSV download URL with auth-independent query params', async () => {
+    const { client } = makeHarness();
+    const reporting = new ReportingModule(client);
+
+    const url = reporting.getScope3CsvUrl({ year: 2026 });
+
+    expect(url).toBe('http://api.test/reporting/scope3?format=csv&year=2026');
+  });
+
+  it('downloads the scope 3 CSV via fetch with the bearer token', async () => {
+    const { client } = makeHarness();
+    const reporting = new ReportingModule(client);
+    client.setAuthToken('jwt-test-token');
+
+    const originalFetch = global.fetch;
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      arrayBuffer: async () => new TextEncoder().encode('\uFEFFcredit_id,tonnes_retired\n7,100\n').buffer,
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    try {
+      const csv = await reporting.downloadScope3Csv({ year: 2026 });
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://api.test/reporting/scope3?format=csv&year=2026',
+        { headers: { Authorization: 'Bearer jwt-test-token' } },
+      );
+      expect(csv.startsWith('\uFEFF')).toBe(true);
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  it('throws when the CSV export fails', async () => {
+    const { client } = makeHarness();
+    const reporting = new ReportingModule(client);
+
+    const originalFetch = global.fetch;
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 403,
+    }) as unknown as typeof fetch;
+
+    try {
+      await expect(reporting.downloadScope3Csv()).rejects.toThrow(
+        'Scope 3 CSV export failed with status 403',
+      );
+    } finally {
+      global.fetch = originalFetch;
+    }
   });
 });
