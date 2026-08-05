@@ -7,6 +7,7 @@ import { registerVerifyCommands } from './commands/verify';
 import { registerDoctorCommand } from './commands/doctor';
 import { registerWebhookCommands } from './commands/webhooks';
 import { registerAdminCommands } from './commands/admin';
+import { registerReportingCommands } from './commands/reporting';
 
 const program = new Command();
 
@@ -31,5 +32,6 @@ registerVerifyCommands(program);
 registerDoctorCommand(program);
 registerWebhookCommands(program);
 registerAdminCommands(program);
+registerReportingCommands(program);
 
 program.parse(process.argv);
