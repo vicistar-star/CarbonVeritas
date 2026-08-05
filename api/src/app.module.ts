@@ -20,6 +20,7 @@ import { EventEmitterModule } from './events/event-emitter.module';
 import { AdminModule } from './admin/admin.module';
 import { ObservabilityModule } from './observability/observability.module';
 import { MetricsInterceptor } from './observability/metrics.interceptor';
+import { ReportingModule } from './reporting/reporting.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { MetricsInterceptor } from './observability/metrics.interceptor';
     EventEmitterModule,
     AdminModule,
     ObservabilityModule,
+    ReportingModule,
   ],
   controllers: [AppController],
   providers: [
