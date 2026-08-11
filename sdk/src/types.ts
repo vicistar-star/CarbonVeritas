@@ -339,3 +339,74 @@ export interface Scope3ReportQuery {
   format?: 'json' | 'csv';
   year?: number;
 }
+
+export type BridgeStatus = 'INBOUND' | 'OUTBOUND';
+
+export type SourceRegistry =
+  | 'VERRA'
+  | 'GOLD_STANDARD'
+  | 'CDM'
+  | 'ACR'
+  | 'CAR'
+  | 'PLAN_VIVO';
+
+export interface BridgeMetadata {
+  projectId: string;
+  methodology: string;
+  vintageStart: number;
+  vintageEnd: number;
+  tonnes: number;
+  geography: string;
+  serialPrefix: string;
+  sdgFlags?: number;
+  permanenceRating?: number;
+  bufferContributionPct?: number;
+  additionalityType?: number;
+  ipfsHash?: string;
+}
+
+export interface BridgeInInput {
+  sourceRegistry: SourceRegistry;
+  sourceSerial: string;
+  leaf: string;
+  merkleProof: string[];
+  merkleRoot: string;
+  metadata: BridgeMetadata;
+}
+
+export interface BridgeRecord {
+  id: string;
+  creditId: number;
+  sourceRegistry: string;
+  sourceSerial: string;
+  merkleRoot: string;
+  status: BridgeStatus;
+  txHash: string;
+  timestamp: string;
+  bridger?: { id: string; stellarPub: string };
+}
+
+export interface RegistryRoot {
+  registry: string;
+  root: string;
+  blockHeight: number;
+  updatedAt: number;
+}
+
+export interface UpdateRegistryRootInput {
+  root: string;
+  blockHeight: number;
+}
+
+export interface UpdateRegistryRootResult {
+  registry: string;
+  blockHeight: number;
+  txHash: string;
+}
+
+export interface BridgeRecordFilter {
+  registry?: string;
+  status?: BridgeStatus;
+  page?: number;
+  limit?: number;
+}

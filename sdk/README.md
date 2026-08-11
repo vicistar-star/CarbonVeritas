@@ -67,6 +67,7 @@ Main entry point with modules:
 | `sdk.certificates` | Certificate operations |
 | `sdk.webhooks` | Webhook endpoint management |
 | `sdk.reporting` | GHG Protocol Scope 3 inventory exports |
+| `sdk.bridge` | Merkle bridge (legacy registry credit imports) |
 | `sdk.admin` | Protocol governance |
 | `sdk.client` | Low-level client (auth, health, raw requests) |
 
@@ -132,4 +133,24 @@ const report = await sdk.reporting.getScope3Report({ year: 2026 });
 console.log(report.summary.totalTonnesRetired);
 
 const csv = await sdk.reporting.downloadScope3Csv({ year: 2026 });
+```
+
+### BridgeModule
+
+- `listRecords(filters?)` — Public bridge audit ledger
+- `bridgeIn(input)` — Bridge a legacy registry credit onto Stellar with a Merkle proof
+- `bridgeOut(creditId)` — Bridge a credit back to its source registry
+- `getRegistryRoot(registry)` — Published merkle root for a registry
+- `updateRegistryRoot(registry, input)` — Publish a registry root (admin token)
+
+```typescript
+const record = await sdk.bridge.bridgeIn({
+  sourceRegistry: 'VERRA',
+  sourceSerial: 'VCS-1500-00034567-2023',
+  leaf: '3a2f...',
+  merkleProof: ['4b1c...'],
+  merkleRoot: '5c3d...',
+  metadata: { projectId: 'P-001', methodology: 'VCS:VM0007', /* ... */ },
+});
+console.log(record.creditId, record.status); // 7 INBOUND
 ```

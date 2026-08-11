@@ -3,6 +3,7 @@ import { CarbonVeritasClient } from '../src/client';
 import { AdminModule } from '../src/admin';
 import { WebhooksModule } from '../src/webhooks';
 import { ReportingModule } from '../src/reporting';
+import { BridgeModule } from '../src/bridge';
 
 interface RecordedRequest {
   method?: string;
@@ -115,6 +116,60 @@ function makeHarness() {
             certificateHash: 'cert-1',
           },
         ],
+      };
+    } else if (url.endsWith('/bridge/in')) {
+      data = {
+        id: 'bridge-1',
+        creditId: 7,
+        sourceRegistry: 'VERRA',
+        sourceSerial: 'VCS-1500-00034567-2023',
+        merkleRoot: '5c3d' + '0'.repeat(60),
+        status: 'INBOUND',
+        txHash: 'tx-bridge-in',
+        timestamp: '2026-08-01T00:00:00.000Z',
+        bridger: { id: 'u-1', stellarPub: 'GWALLET' },
+      };
+    } else if (url.match(/\/bridge\/credits\/\d+\/out$/)) {
+      data = {
+        id: 'bridge-1',
+        creditId: 7,
+        sourceRegistry: 'VERRA',
+        sourceSerial: 'VCS-1500-00034567-2023',
+        merkleRoot: '5c3d' + '0'.repeat(60),
+        status: 'OUTBOUND',
+        txHash: 'tx-bridge-out',
+        timestamp: '2026-08-01T00:00:00.000Z',
+        bridger: { id: 'u-1', stellarPub: 'GWALLET' },
+      };
+    } else if (url.endsWith('/bridge/records')) {
+      data = {
+        data: [
+          {
+            id: 'bridge-1',
+            creditId: 7,
+            sourceRegistry: 'VERRA',
+            sourceSerial: 'VCS-1500-00034567-2023',
+            merkleRoot: '5c3d' + '0'.repeat(60),
+            status: 'INBOUND',
+            txHash: 'tx-bridge-in',
+            timestamp: '2026-08-01T00:00:00.000Z',
+            bridger: { id: 'u-1', stellarPub: 'GWALLET' },
+          },
+        ],
+        meta: { total: 1, page: 1, limit: 20, totalPages: 1 },
+      };
+    } else if (url.endsWith('/bridge/registries/VERRA/root') && method === 'post') {
+      data = {
+        registry: 'VERRA',
+        blockHeight: 24150000,
+        txHash: 'tx-root-update',
+      };
+    } else if (url.match(/\/bridge\/registries\/[^/]+\/root$/)) {
+      data = {
+        registry: 'VERRA',
+        root: '5c3d' + '0'.repeat(60),
+        blockHeight: 24150000,
+        updatedAt: 1785600000,
       };
     } else {
       data = {};
@@ -358,5 +413,94 @@ describe('ReportingModule', () => {
     } finally {
       global.fetch = originalFetch;
     }
+  });
+});
+
+describe('BridgeModule', () => {
+  const input = {
+    sourceRegistry: 'VERRA' as const,
+    sourceSerial: 'VCS-1500-00034567-2023',
+    leaf: '3a2f' + '0'.repeat(60),
+    merkleProof: ['4b1c' + '0'.repeat(60)],
+    merkleRoot: '5c3d' + '0'.repeat(60),
+    metadata: {
+      projectId: 'VCS-1500-AMZ-001',
+      methodology: 'VCS:VM0007',
+      vintageStart: 1704067200,
+      vintageEnd: 1735689600,
+      tonnes: 10000000,
+      geography: 'BR',
+      serialPrefix: 'VCS-1500-',
+    },
+  };
+
+  it('lists the bridge audit ledger with filters', async () => {
+    const { client, requests } = makeHarness();
+    const bridge = new BridgeModule(client);
+
+    const res = await bridge.listRecords({ registry: 'VERRA', status: 'INBOUND', page: 2, limit: 10 });
+
+    expect(requests[0]).toMatchObject({ method: 'get', url: '/bridge/records' });
+    expect(requests[0].params).toEqual({ registry: 'VERRA', status: 'INBOUND', page: 2, limit: 10 });
+    expect(res.data).toHaveLength(1);
+    expect(res.data[0].status).toBe('INBOUND');
+    expect(res.meta.total).toBe(1);
+  });
+
+  it('omits empty bridge ledger filters', async () => {
+    const { client, requests } = makeHarness();
+    const bridge = new BridgeModule(client);
+
+    await bridge.listRecords();
+
+    expect(requests[0].params).toEqual({});
+  });
+
+  it('bridges a credit in with the proof payload', async () => {
+    const { client, requests } = makeHarness();
+    const bridge = new BridgeModule(client);
+
+    const record = await bridge.bridgeIn(input);
+
+    expect(requests[0]).toMatchObject({ method: 'post', url: '/bridge/in' });
+    expect(requests[0].data).toEqual(input);
+    expect(record.creditId).toBe(7);
+    expect(record.status).toBe('INBOUND');
+    expect(record.bridger?.stellarPub).toBe('GWALLET');
+  });
+
+  it('bridges a credit back out by creditId', async () => {
+    const { client, requests } = makeHarness();
+    const bridge = new BridgeModule(client);
+
+    const record = await bridge.bridgeOut(7);
+
+    expect(requests[0]).toMatchObject({ method: 'post', url: '/bridge/credits/7/out' });
+    expect(record.status).toBe('OUTBOUND');
+    expect(record.txHash).toBe('tx-bridge-out');
+  });
+
+  it('reads the published registry root', async () => {
+    const { client, requests } = makeHarness();
+    const bridge = new BridgeModule(client);
+
+    const root = await bridge.getRegistryRoot('VERRA');
+
+    expect(requests[0]).toMatchObject({ method: 'get', url: '/bridge/registries/VERRA/root' });
+    expect(root.blockHeight).toBe(24150000);
+  });
+
+  it('publishes a registry root as admin', async () => {
+    const { client, requests } = makeHarness();
+    const bridge = new BridgeModule(client);
+
+    const result = await bridge.updateRegistryRoot('VERRA', {
+      root: '5c3d' + '0'.repeat(60),
+      blockHeight: 24150000,
+    });
+
+    expect(requests[0]).toMatchObject({ method: 'post', url: '/bridge/registries/VERRA/root' });
+    expect(requests[0].data).toEqual({ root: '5c3d' + '0'.repeat(60), blockHeight: 24150000 });
+    expect(result.txHash).toBe('tx-root-update');
   });
 });
