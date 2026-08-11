@@ -8,6 +8,7 @@ import {
   updateProtocolConfig,
   getSystemStatus,
   getAdminContracts,
+  publishRegistryRoot,
 } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -66,10 +67,11 @@ export default function AdminPage() {
   ]);
 
   // Oracle roots
-  const [registries, setRegistries] = useState<Array<{ name: string; root: string }>>([
-    { name: 'Verra', root: '' },
-    { name: 'Gold Standard', root: '' },
+  const [registries, setRegistries] = useState<Array<{ name: string; code: string; root: string }>>([
+    { name: 'Verra', code: 'VERRA', root: '' },
+    { name: 'Gold Standard', code: 'GOLD_STANDARD', root: '' },
   ]);
+  const [rootBlockHeight, setRootBlockHeight] = useState('');
 
   const [error, setError] = useState<string | null>(null);
 
@@ -165,9 +167,21 @@ export default function AdminPage() {
   const handleUpdateRoot = async () => {
     setError(null);
     try {
-      await new Promise((r) => setTimeout(r, 500));
-    } catch {
-      setError('Failed to update registry root.');
+      const updates = registries.filter((r) => r.root.trim());
+      if (updates.length === 0) {
+        setError('Enter at least one merkle root.');
+        return;
+      }
+      for (const r of updates) {
+        await publishRegistryRoot(r.code, {
+          root: r.root.trim(),
+          blockHeight: Number(rootBlockHeight),
+        });
+      }
+      setRegistries((prev) => prev.map((r) => ({ ...r, root: '' })));
+      setRootBlockHeight('');
+    } catch (err) {
+      setError(`Failed to update registry root: ${(err as Error).message}`);
     }
   };
 
@@ -518,6 +532,15 @@ export default function AdminPage() {
                   />
                 </div>
               ))}
+              <div className="flex items-center gap-3">
+                <div className="w-32 text-sm font-medium">Block height</div>
+                <Input
+                  placeholder="24150000"
+                  value={rootBlockHeight}
+                  onChange={(e) => setRootBlockHeight(e.target.value)}
+                  className="flex-1 font-mono text-xs"
+                />
+              </div>
               <Button onClick={handleUpdateRoot}>Update Roots</Button>
             </CardContent>
           </Card>

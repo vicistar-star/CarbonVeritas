@@ -244,3 +244,32 @@ export interface Scope3Report {
   summary: Scope3Summary;
   lineItems: Scope3LineItem[];
 }
+
+export type BridgeStatus = 'INBOUND' | 'OUTBOUND';
+
+export type SourceRegistry =
+  | 'VERRA'
+  | 'GOLD_STANDARD'
+  | 'CDM'
+  | 'ACR'
+  | 'CAR'
+  | 'PLAN_VIVO';
+
+export interface BridgeRecord {
+  id: string;
+  creditId: number;
+  sourceRegistry: string;
+  sourceSerial: string;
+  merkleRoot: string;
+  status: BridgeStatus;
+  txHash: string;
+  timestamp: string;
+  bridger?: { id: string; stellarPub: string };
+}
+
+export interface RegistryRoot {
+  registry: string;
+  root: string;
+  blockHeight: number;
+  updatedAt: number;
+}

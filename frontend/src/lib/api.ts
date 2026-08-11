@@ -18,6 +18,9 @@ import type {
   AdminContracts,
   SystemStatus,
   Scope3Report,
+  BridgeRecord,
+  BridgeStatus,
+  RegistryRoot,
 } from '@/types';
 
 let apiInstance: AxiosInstance | null = null;
@@ -285,6 +288,47 @@ export async function downloadScope3Csv(year?: number): Promise<string> {
   }
   const bytes = new Uint8Array(await res.arrayBuffer());
   return new TextDecoder('utf-8', { ignoreBOM: true }).decode(bytes);
+}
+
+// Bridge
+export async function getBridgeRecords(filters?: {
+  registry?: string;
+  status?: BridgeStatus;
+  page?: number;
+  limit?: number;
+}): Promise<PaginatedResponse<BridgeRecord>> {
+  const res = await getApi().get('/bridge/records', { params: filters });
+  return res.data;
+}
+
+export async function getRegistryRoot(registry: string): Promise<RegistryRoot> {
+  const res = await getApi().get(`/bridge/registries/${registry}/root`);
+  return res.data;
+}
+
+export async function bridgeCreditIn(data: {
+  sourceRegistry: string;
+  sourceSerial: string;
+  leaf: string;
+  merkleProof: string[];
+  merkleRoot: string;
+  metadata: Record<string, unknown>;
+}): Promise<BridgeRecord> {
+  const res = await getApi().post('/bridge/in', data);
+  return res.data;
+}
+
+export async function bridgeCreditOut(creditId: number): Promise<BridgeRecord> {
+  const res = await getApi().post(`/bridge/credits/${creditId}/out`);
+  return res.data;
+}
+
+export async function publishRegistryRoot(
+  registry: string,
+  data: { root: string; blockHeight: number },
+): Promise<Record<string, unknown>> {
+  const res = await getApi().post(`/bridge/registries/${registry}/root`, data);
+  return res.data;
 }
 
 // Protocol Stats
