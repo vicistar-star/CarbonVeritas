@@ -8,6 +8,7 @@ import { registerDoctorCommand } from './commands/doctor';
 import { registerWebhookCommands } from './commands/webhooks';
 import { registerAdminCommands } from './commands/admin';
 import { registerReportingCommands } from './commands/reporting';
+import { registerBridgeCommands } from './commands/bridge';
 
 const program = new Command();
 
@@ -33,5 +34,6 @@ registerDoctorCommand(program);
 registerWebhookCommands(program);
 registerAdminCommands(program);
 registerReportingCommands(program);
+registerBridgeCommands(program);
 
 program.parse(process.argv);
