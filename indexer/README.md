@@ -60,3 +60,16 @@ npm test
 - `offer-created.ts` — insert Offer record
 - `offer-filled.ts` — update offer + create Trade record
 - `offer-cancelled.ts` — update offer status
+- `credit-bridged.ts` — confirm the INBOUND leg of the bridge ledger from the `bridged` event
+- `credit-bridged-out.ts` — retire the credit and flip the ledger entry to OUTBOUND from the `bridge_ot` event
+- `registry-root-updated.ts` — log registry merkle-root rotations from the `root_upd` event
+
+## Bridge events
+
+The MerkleBridge contract emits three events the indexer consumes:
+
+| Event | Topics | Value | Action |
+| --- | --- | --- | --- |
+| `bridged` | registry, serial | credit id | confirm the bridge ledger entry as INBOUND |
+| `bridge_ot` | credit id | owner | retire the credit, flip ledger entry to OUTBOUND |
+| `root_upd` | registry | merkle root (BytesN<32>) | log the registry root rotation |

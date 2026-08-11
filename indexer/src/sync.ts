@@ -11,6 +11,9 @@ import { processCreditRetired, CreditRetiredEvent } from './processors/credit-re
 import { processOfferCreated, OfferCreatedEvent } from './processors/offer-created';
 import { processOfferFilled, OfferFilledEvent } from './processors/offer-filled';
 import { processOfferCancelled, OfferCancelledEvent } from './processors/offer-cancelled';
+import { processCreditBridged, CreditBridgedEvent } from './processors/credit-bridged';
+import { processCreditBridgedOut, CreditBridgedOutEvent } from './processors/credit-bridged-out';
+import { processRegistryRootUpdated, RegistryRootUpdatedEvent } from './processors/registry-root-updated';
 import { contractIds as readContractIds } from './config';
 
 const PAGE_LIMIT = 100;
@@ -25,7 +28,10 @@ export type SyncEvent =
   | { type: 'CreditRetired'; data: CreditRetiredEvent }
   | { type: 'OfferCreated'; data: OfferCreatedEvent }
   | { type: 'OfferFilled'; data: OfferFilledEvent }
-  | { type: 'OfferCancelled'; data: OfferCancelledEvent };
+  | { type: 'OfferCancelled'; data: OfferCancelledEvent }
+  | { type: 'CreditBridged'; data: CreditBridgedEvent }
+  | { type: 'CreditBridgedOut'; data: CreditBridgedOutEvent }
+  | { type: 'RegistryRootUpdated'; data: RegistryRootUpdatedEvent };
 
 export interface SyncCursor {
   ledgerSequence: number;
@@ -101,6 +107,15 @@ export class IndexerSync {
         break;
       case 'OfferCancelled':
         await processOfferCancelled(this.prisma, event.data);
+        break;
+      case 'CreditBridged':
+        await processCreditBridged(this.prisma, event.data);
+        break;
+      case 'CreditBridgedOut':
+        await processCreditBridgedOut(this.prisma, event.data);
+        break;
+      case 'RegistryRootUpdated':
+        await processRegistryRootUpdated(event.data);
         break;
     }
   }
@@ -231,6 +246,64 @@ export class IndexerSync {
     return events;
   }
 
+  /**
+   * Extract a number from an event payload that may arrive as a JSON-XDR
+   * scval (e.g. `{ u64: { value: "7" } }`) or as a plain value.
+   */
+  private toNumber(v: unknown): number {
+    if (typeof v === 'number') return v;
+    if (typeof v === 'bigint') return Number(v);
+    if (v && typeof v === 'object') {
+      const o = v as Record<string, unknown>;
+      const inner = o.u64 ?? o.i128 ?? o.i256 ?? o.value ?? o;
+      if (inner && typeof inner === 'object') {
+        return Number((inner as Record<string, unknown>).value ?? 0);
+      }
+      return Number(inner ?? 0);
+    }
+    return Number(v ?? 0);
+  }
+
+  /**
+   * Extract a string from an event payload that may be a plain string or a
+   * JSON-XDR scval (e.g. an `Address`).
+   */
+  private toStringValue(v: unknown): string {
+    if (typeof v === 'string') return v;
+    if (v && typeof v === 'object') {
+      const o = v as Record<string, unknown>;
+      const container = o.address ?? o;
+      if (container && typeof container === 'object') {
+        const addr = container as Record<string, unknown>;
+        const account = addr.account ?? (typeof addr.publicKey === 'string' ? addr : undefined);
+        if (account && typeof account === 'object') {
+          const inner = account as Record<string, unknown>;
+          return String(inner.publicKey ?? inner.contract ?? inner.value ?? '');
+        }
+        const contract = addr.contract;
+        if (contract && typeof contract === 'object') {
+          return String((contract as Record<string, unknown>).contract_id ?? '');
+        }
+        return String(addr.contract_id ?? addr.publicKey ?? addr.value ?? '');
+      }
+      return String(o.symbol ?? o.str ?? o.bytes ?? o.value ?? '');
+    }
+    return String(v ?? '');
+  }
+
+  /**
+   * Extract a hex string from an event payload that may be a plain hex
+   * string or a JSON-XDR `BytesN` scval (`{ bytes: "0x..." }`).
+   */
+  private toHexValue(v: unknown): string {
+    if (typeof v === 'string') return v;
+    if (v && typeof v === 'object') {
+      const o = v as Record<string, unknown>;
+      return String(o.bytes ?? o.hex ?? o.value ?? '');
+    }
+    return String(v ?? '');
+  }
+
   private parseRpcEvent(rpcEvent: RpcEvent): SyncEvent | null {
     try {
       const value = rpcEvent.value as Record<string, unknown> | undefined;
@@ -240,6 +313,43 @@ export class IndexerSync {
       if (!value) return null;
 
       switch (topicStr) {
+        case 'bridged': {
+          const creditId = this.toNumber(value);
+          return {
+            type: 'CreditBridged',
+            data: {
+              creditId,
+              sourceRegistry: String(topic[1] ?? ''),
+              sourceSerial: String(topic[2] ?? ''),
+              txHash: String(rpcEvent.txHash ?? ''),
+              timestamp: Number(rpcEvent.ledger ?? 0),
+            },
+          };
+        }
+        case 'bridge_ot': {
+          const creditId = this.toNumber(topic[1]);
+          return {
+            type: 'CreditBridgedOut',
+            data: {
+              creditId,
+              owner: this.toStringValue(value),
+              txHash: String(rpcEvent.txHash ?? ''),
+              timestamp: Number(rpcEvent.ledger ?? 0),
+            },
+          };
+        }
+        case 'root_upd': {
+          return {
+            type: 'RegistryRootUpdated',
+            data: {
+              registry: String(topic[1] ?? ''),
+              root: this.toHexValue(value),
+              ledgerSequence: Number(rpcEvent.ledger ?? 0),
+              txHash: String(rpcEvent.txHash ?? ''),
+              timestamp: Number(rpcEvent.ledger ?? 0),
+            },
+          };
+        }
         case 'credit_submitted': {
           const v = value as Record<string, unknown>;
           return {

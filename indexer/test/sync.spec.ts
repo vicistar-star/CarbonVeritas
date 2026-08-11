@@ -29,6 +29,11 @@ function createPrismaMock(): any {
     retirement: {
       create: jest.fn(async () => ({})),
     },
+    bridgeRecord: {
+      findUnique: jest.fn(async () => ({ id: 'bridge-1' })),
+      findFirst: jest.fn(async () => ({ id: 'bridge-1' })),
+      update: jest.fn(async () => ({})),
+    },
   };
 }
 
@@ -130,6 +135,93 @@ describe('IndexerSync', () => {
       );
 
       expect(parsed?.type).toBe(expectedType);
+    });
+
+    it('maps bridged topics to a CreditBridged event with registry and serial', () => {
+      const parsed = (sync as unknown as { parseRpcEvent(e: unknown): SyncEvent | null }).parseRpcEvent(
+        rpcEvent({
+          topic: ['bridged', 'VERRA', 'VCS-1500-00034567-2023'],
+          value: '7',
+        }),
+      );
+
+      expect(parsed).toEqual({
+        type: 'CreditBridged',
+        data: {
+          creditId: 7,
+          sourceRegistry: 'VERRA',
+          sourceSerial: 'VCS-1500-00034567-2023',
+          txHash: 'tx-hash',
+          timestamp: 10,
+        },
+      });
+    });
+
+    it('parses the bridged credit id from a JSON-XDR u64 value', () => {
+      const parsed = (sync as unknown as { parseRpcEvent(e: unknown): SyncEvent | null }).parseRpcEvent(
+        rpcEvent({
+          topic: ['bridged', 'GOLD_STANDARD', 'GS-1-2'],
+          value: { u64: { value: '9' } },
+        }),
+      );
+
+      expect(parsed).toMatchObject({
+        type: 'CreditBridged',
+        data: expect.objectContaining({ creditId: 9 }),
+      });
+    });
+
+    it('maps bridge_ot topics to a CreditBridgedOut event with owner', () => {
+      const parsed = (sync as unknown as { parseRpcEvent(e: unknown): SyncEvent | null }).parseRpcEvent(
+        rpcEvent({
+          topic: ['bridge_ot', '7'],
+          value: 'GOWNER',
+        }),
+      );
+
+      expect(parsed).toEqual({
+        type: 'CreditBridgedOut',
+        data: {
+          creditId: 7,
+          owner: 'GOWNER',
+          txHash: 'tx-hash',
+          timestamp: 10,
+        },
+      });
+    });
+
+    it('parses the bridge_ot owner from a JSON-XDR address value', () => {
+      const parsed = (sync as unknown as { parseRpcEvent(e: unknown): SyncEvent | null }).parseRpcEvent(
+        rpcEvent({
+          topic: ['bridge_ot', { u64: { value: '7' } }],
+          value: { address: { account: { publicKey: 'GOWNER' } } },
+        }),
+      );
+
+      expect(parsed).toMatchObject({
+        type: 'CreditBridgedOut',
+        data: expect.objectContaining({ creditId: 7, owner: 'GOWNER' }),
+      });
+    });
+
+    it('maps root_upd topics to a RegistryRootUpdated event with the root hex', () => {
+      const parsed = (sync as unknown as { parseRpcEvent(e: unknown): SyncEvent | null }).parseRpcEvent(
+        rpcEvent({
+          topic: ['root_upd', 'VERRA'],
+          value: { bytes: '0x5c3d' },
+        }),
+      );
+
+      expect(parsed).toEqual({
+        type: 'RegistryRootUpdated',
+        data: {
+          registry: 'VERRA',
+          root: '0x5c3d',
+          ledgerSequence: 10,
+          txHash: 'tx-hash',
+          timestamp: 10,
+        },
+      });
     });
 
     it('returns null for unknown topics', () => {
@@ -346,6 +438,83 @@ describe('IndexerSync', () => {
           data: expect.objectContaining({ amount: 40 }),
         }),
       );
+    });
+
+    it('routes CreditBridged to confirm the inbound ledger entry', async () => {
+      const prisma = createPrismaMock();
+      const sync = new IndexerSync(prisma, 'http://rpc.test');
+
+      await sync.processEvent({
+        type: 'CreditBridged',
+        data: {
+          creditId: 7,
+          sourceRegistry: 'VERRA',
+          sourceSerial: 'VCS-1500-00034567-2023',
+          txHash: 'tx-bridged',
+          timestamp: 10,
+        },
+      });
+
+      expect(prisma.bridgeRecord.findUnique).toHaveBeenCalledWith({
+        where: {
+          sourceRegistry_sourceSerial: {
+            sourceRegistry: 'VERRA',
+            sourceSerial: 'VCS-1500-00034567-2023',
+          },
+        },
+      });
+      expect(prisma.bridgeRecord.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'bridge-1' },
+          data: expect.objectContaining({ status: 'INBOUND', txHash: 'tx-bridged' }),
+        }),
+      );
+    });
+
+    it('routes CreditBridgedOut to retire the credit and flip the ledger entry', async () => {
+      const prisma = createPrismaMock();
+      const sync = new IndexerSync(prisma, 'http://rpc.test');
+
+      await sync.processEvent({
+        type: 'CreditBridgedOut',
+        data: {
+          creditId: 7,
+          owner: 'GOWNER',
+          txHash: 'tx-bridge-out',
+          timestamp: 11,
+        },
+      });
+
+      expect(prisma.credit.update).toHaveBeenCalledWith({
+        where: { creditId: 7 },
+        data: { status: 'RETIRED' },
+      });
+      expect(prisma.bridgeRecord.findFirst).toHaveBeenCalledWith({
+        where: { creditId: 7 },
+      });
+      expect(prisma.bridgeRecord.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: 'OUTBOUND', txHash: 'tx-bridge-out' }),
+        }),
+      );
+    });
+
+    it('routes RegistryRootUpdated to the logging processor', async () => {
+      const prisma = createPrismaMock();
+      const sync = new IndexerSync(prisma, 'http://rpc.test');
+
+      await expect(
+        sync.processEvent({
+          type: 'RegistryRootUpdated',
+          data: {
+            registry: 'VERRA',
+            root: '0x5c3d',
+            ledgerSequence: 10,
+            txHash: 'tx-root',
+            timestamp: 10,
+          },
+        }),
+      ).resolves.toBeUndefined();
     });
   });
 });
