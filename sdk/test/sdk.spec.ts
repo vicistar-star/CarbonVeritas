@@ -4,6 +4,7 @@ import { AdminModule } from '../src/admin';
 import { WebhooksModule } from '../src/webhooks';
 import { ReportingModule } from '../src/reporting';
 import { BridgeModule } from '../src/bridge';
+import { RevenueSplitModule } from '../src/revenue-split';
 
 interface RecordedRequest {
   method?: string;
@@ -170,6 +171,24 @@ function makeHarness() {
         root: '5c3d' + '0'.repeat(60),
         blockHeight: 24150000,
         updatedAt: 1785600000,
+      };
+    } else if (url.endsWith('/revenue-split/P-001/config') && method === 'post') {
+      data = { projectId: 'P-001', txHash: 'tx-configure' };
+    } else if (url.match(/\/revenue-split\/[^/]+\/config$/)) {
+      data = {
+        projectId: 'P-001',
+        beneficiaries: [
+          { address: 'GBENEFICIARY1', bps: 6000 },
+          { address: 'GBENEFICIARY2', bps: 4000 },
+        ],
+        protocolFeeBps: 50,
+      };
+    } else if (url.endsWith('/revenue-split/P-001/distribute')) {
+      data = {
+        projectId: 'P-001',
+        asset: 'GUSDC',
+        amount: 1000000000,
+        txHash: 'tx-distribute',
       };
     } else {
       data = {};
@@ -502,5 +521,54 @@ describe('BridgeModule', () => {
     expect(requests[0]).toMatchObject({ method: 'post', url: '/bridge/registries/VERRA/root' });
     expect(requests[0].data).toEqual({ root: '5c3d' + '0'.repeat(60), blockHeight: 24150000 });
     expect(result.txHash).toBe('tx-root-update');
+  });
+});
+
+describe('RevenueSplitModule', () => {
+  it('reads a project revenue config', async () => {
+    const { client, requests } = makeHarness();
+    const revenueSplit = new RevenueSplitModule(client);
+
+    const config = await revenueSplit.getConfig('P-001');
+
+    expect(requests[0]).toMatchObject({ method: 'get', url: '/revenue-split/P-001/config' });
+    expect(config.projectId).toBe('P-001');
+    expect(config.beneficiaries).toHaveLength(2);
+    expect(config.protocolFeeBps).toBe(50);
+  });
+
+  it('configures beneficiaries as admin', async () => {
+    const { client, requests } = makeHarness();
+    const revenueSplit = new RevenueSplitModule(client);
+
+    const result = await revenueSplit.configure('P-001', {
+      beneficiaries: [
+        { address: 'GBENEFICIARY1', bps: 6000 },
+        { address: 'GBENEFICIARY2', bps: 4000 },
+      ],
+    });
+
+    expect(requests[0]).toMatchObject({ method: 'post', url: '/revenue-split/P-001/config' });
+    expect(requests[0].data).toEqual({
+      beneficiaries: [
+        { address: 'GBENEFICIARY1', bps: 6000 },
+        { address: 'GBENEFICIARY2', bps: 4000 },
+      ],
+    });
+    expect(result.txHash).toBe('tx-configure');
+  });
+
+  it('distributes a payment', async () => {
+    const { client, requests } = makeHarness();
+    const revenueSplit = new RevenueSplitModule(client);
+
+    const result = await revenueSplit.distribute('P-001', {
+      asset: 'GUSDC',
+      amount: 1000000000,
+    });
+
+    expect(requests[0]).toMatchObject({ method: 'post', url: '/revenue-split/P-001/distribute' });
+    expect(requests[0].data).toEqual({ asset: 'GUSDC', amount: 1000000000 });
+    expect(result.txHash).toBe('tx-distribute');
   });
 });

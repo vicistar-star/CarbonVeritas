@@ -1,6 +1,6 @@
 # @carbonveritas/cli
 
-Command-line interface for the CarbonVeritas protocol. Supports credits, marketplace, retirement, verifier, health check, webhook, admin, reporting, and bridge operations.
+Command-line interface for the CarbonVeritas protocol. Supports credits, marketplace, retirement, verifier, health check, webhook, admin, reporting, bridge, and revenue-split operations.
 
 ## Usage
 
@@ -20,6 +20,7 @@ npx @carbonveritas/cli doctor
 - `admin` — protocol governance operations
 - `reporting` — scope3 (GHG Protocol Scope 3 export)
 - `bridge` — records, in, out, root:get, root:update
+- `revenue-split` — config, configure, distribute
 - `doctor` — health check for all services
 
 ## Reporting
@@ -57,4 +58,18 @@ npx @carbonveritas/cli bridge out 7
 # Inspect or publish a registry merkle root (publish requires an admin token)
 npx @carbonveritas/cli bridge root:get VERRA
 npx @carbonveritas/cli bridge root:update VERRA --root 5c3d... --block-height 24150000
+```
+
+## Revenue Split
+
+```bash
+# Show a project's revenue-split configuration
+npx @carbonveritas/cli revenue-split config P-001
+
+# Configure beneficiary shares (admin token; shares must sum to 10000)
+npx @carbonveritas/cli revenue-split configure P-001 \
+  --beneficiaries G...dev:6000,G...community:3000,G...bank:1000
+
+# Distribute a payment among the configured beneficiaries (requires CV_AUTH_TOKEN)
+npx @carbonveritas/cli revenue-split distribute P-001 --asset G...USD --amount 500000000
 ```

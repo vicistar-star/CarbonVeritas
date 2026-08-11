@@ -13,6 +13,7 @@ import {
   decodeCreditMetadata,
   decodeOffer,
   decodeRegistryRoot,
+  decodeRevenueConfig,
   decodeRetirementRecord,
   scAddress,
   scBytes32,
@@ -23,6 +24,7 @@ import {
   scString,
   scU32,
   scU64,
+  scVec,
   scVecBytes32,
   toCreditMetadataScVal,
   zipNativeFields,
@@ -608,6 +610,71 @@ export class StellarService {
 
   private adminPublicKey(): string {
     return Keypair.fromSecret(this.adminSecret()).publicKey();
+  }
+
+  /**
+   * Configure revenue-split beneficiaries for a project. Each beneficiary
+   * gets a share in basis points; the contract requires the sum to be
+   * exactly 10000 (100.00%). Admin-only.
+   */
+  async configureRevenueSplit(
+    admin: string,
+    projectId: string,
+    beneficiaries: Array<{ address: string; bps: number }>,
+  ): Promise<string> {
+    this.warnIfSignerMismatch('configureRevenueSplit', admin, this.adminSecret());
+    const receipt = await this.invoke(
+      'REVENUE_SPLIT_CONTRACT',
+      'configure',
+      [
+        scAddress(admin),
+        scString(projectId),
+        scVec(
+          beneficiaries.map((b) => scVec([scAddress(b.address), scU32(b.bps)])),
+        ),
+      ],
+      this.adminSecret(),
+    );
+    this.logger.log(
+      `configureRevenueSplit: projectId=${projectId}, beneficiaries=${beneficiaries.length}, tx=${receipt.hash}`,
+    );
+    return receipt.hash;
+  }
+
+  /**
+   * Distribute a payment among a project's configured beneficiaries. The
+   * protocol fee is deducted first (to the fee address), then the remainder
+   * is split by each beneficiary's bps share. Returns the transaction hash.
+   */
+  async distributeRevenueSplit(
+    caller: string,
+    projectId: string,
+    asset: string,
+    amount: number | bigint,
+  ): Promise<string> {
+    this.warnIfSignerMismatch('distributeRevenueSplit', caller, this.adminSecret());
+    const receipt = await this.invoke(
+      'REVENUE_SPLIT_CONTRACT',
+      'distribute',
+      [scAddress(caller), scString(projectId), scAddress(asset), scI128(amount)],
+      this.adminSecret(),
+    );
+    this.logger.log(
+      `distributeRevenueSplit: projectId=${projectId}, asset=${asset}, amount=${String(amount)}, tx=${receipt.hash}`,
+    );
+    return receipt.hash;
+  }
+
+  async getRevenueConfig(
+    projectId: string,
+  ): Promise<Record<string, unknown> | null> {
+    const sv = await this.readScVal(
+      'REVENUE_SPLIT_CONTRACT',
+      'get_config',
+      [scString(projectId)],
+    );
+    if (sv === null) return null;
+    return decodeRevenueConfig(sv);
   }
 
   private mapCreditStatus(status: number): string {

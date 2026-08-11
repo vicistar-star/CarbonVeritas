@@ -22,6 +22,7 @@ import { ObservabilityModule } from './observability/observability.module';
 import { MetricsInterceptor } from './observability/metrics.interceptor';
 import { ReportingModule } from './reporting/reporting.module';
 import { BridgeModule } from './bridge/bridge.module';
+import { RevenueSplitModule } from './revenue-split/revenue-split.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { BridgeModule } from './bridge/bridge.module';
     ObservabilityModule,
     ReportingModule,
     BridgeModule,
+    RevenueSplitModule,
   ],
   controllers: [AppController],
   providers: [

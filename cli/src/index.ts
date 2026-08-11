@@ -9,6 +9,7 @@ import { registerWebhookCommands } from './commands/webhooks';
 import { registerAdminCommands } from './commands/admin';
 import { registerReportingCommands } from './commands/reporting';
 import { registerBridgeCommands } from './commands/bridge';
+import { registerRevenueSplitCommands } from './commands/revenue-split';
 
 const program = new Command();
 
@@ -35,5 +36,6 @@ registerWebhookCommands(program);
 registerAdminCommands(program);
 registerReportingCommands(program);
 registerBridgeCommands(program);
+registerRevenueSplitCommands(program);
 
 program.parse(process.argv);

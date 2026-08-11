@@ -113,6 +113,9 @@ export function createStellarMock() {
     verifyProof: jest.fn(),
     getRegistryRoot: jest.fn(),
     updateRegistryRoot: jest.fn(),
+    configureRevenueSplit: jest.fn(),
+    distributeRevenueSplit: jest.fn(),
+    getRevenueConfig: jest.fn(),
   };
 }
 

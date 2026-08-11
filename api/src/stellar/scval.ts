@@ -222,6 +222,12 @@ export const REGISTRY_ROOT_FIELDS = [
   'updatedAt',
 ] as const;
 
+export const REVENUE_CONFIG_FIELDS = [
+  'projectId',
+  'beneficiaries',
+  'protocolFeeBps',
+] as const;
+
 const CONFIG_FIELDS = [
   'admin',
   'verifierThreshold',
@@ -284,6 +290,28 @@ export function decodeVerifier(sv: RawScVal): Record<string, unknown> {
 
 export function decodeRegistryRoot(sv: RawScVal): Record<string, unknown> {
   return decodeStruct(REGISTRY_ROOT_FIELDS, sv);
+}
+
+/**
+ * Decode a `RevenueConfig` struct and normalize the nested
+ * `Vec<(Address, u32)>` beneficiaries into `{ address, bps }` objects.
+ */
+export function decodeRevenueConfig(sv: RawScVal): Record<string, unknown> {
+  const decoded = decodeStruct(REVENUE_CONFIG_FIELDS, sv);
+  const beneficiaries = Array.isArray(decoded.beneficiaries)
+    ? decoded.beneficiaries.map((row) => {
+        const pair = Array.isArray(row) ? row : [];
+        return { address: String(pair[0] ?? ''), bps: Number(pair[1] ?? 0) };
+      })
+    : [];
+  return {
+    projectId: String(decoded.projectId ?? ''),
+    beneficiaries,
+    protocolFeeBps:
+      typeof decoded.protocolFeeBps === 'bigint'
+        ? Number(decoded.protocolFeeBps)
+        : decoded.protocolFeeBps,
+  };
 }
 
 export function decodeContractConfig(sv: RawScVal): Record<string, unknown> {

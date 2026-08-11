@@ -1074,6 +1074,31 @@ Every import is verified read-only against the registry's published root before 
 
 ---
 
+### Revenue Distribution
+
+Automatically split project payments among stakeholders (developer, community, carbon bank, partners) at settlement. Each beneficiary receives a basis-point share, the protocol fee is deducted first, and the remainder is distributed on-chain by the RevenueSplit contract:
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/revenue-split/:projectId/config` | Admin | Configure beneficiary shares (bps must sum to 10000) |
+| POST | `/revenue-split/:projectId/distribute` | Required | Distribute a payment among configured beneficiaries |
+| GET | `/revenue-split/:projectId/config` | Public | Revenue-split configuration for a project |
+
+```json
+// POST /revenue-split/P-001/config
+{
+  "beneficiaries": [
+    { "address": "G...developer", "bps": 6000 },
+    { "address": "G...community", "bps": 3000 },
+    { "address": "G...bank", "bps": 1000 }
+  ]
+}
+```
+
+Also available from the SDK (`sdk.revenueSplit`) and CLI (`cv revenue-split`).
+
+---
+
 ### Webhooks
 
 Register webhook endpoints to receive real-time notifications:
@@ -2007,25 +2032,25 @@ Alerts are configured via PagerDuty for:
 - VerifierStake contract
 - GHG Protocol Scope 3 export format (API, SDK, CLI, and frontend)
 
-### 🔄 In Progress (Q2 2026)
+### ✅ Completed (Q2–Q3 2026)
 
-- Marketplace contract + Stellar DEX integration
-- Hacken audit (Marketplace)
+- MerkleBridge for Verra and Gold Standard credits (API, SDK, CLI, indexer, frontend)
+- RevenueSplit automated distribution (API, SDK, CLI)
 - Live demo environment (`testnet.carbonveritas.io`)
 - Documentation site (`docs.carbonveritas.io`)
 
-### 📅 Planned (Q3 2026)
+### 🔄 In Progress (Q3 2026)
 
-- MerkleBridge for Verra and Gold Standard credits
-- RevenueSplit automated distribution
+- Marketplace contract + Stellar DEX integration
+- Hacken audit (Marketplace)
 - Mobile app (React Native + Expo)
 - Certora formal verification (MerkleBridge)
+
+### 📅 Planned (Q3–Q4 2026)
+
 - Mainnet launch
 - Corporate bulk API (rate limits 10×)
 - CORSIA methodology flags
-
-### 🗺️ Future (Q3–Q4 2026)
-
 - DAO governance for protocol parameters (fee, thresholds, verifier slashing)
 - Carbon futures and options (structured products layer)
 - Integration with Regen Network for crosschain credits

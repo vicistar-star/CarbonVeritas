@@ -7,6 +7,7 @@ import { WebhooksModule } from './webhooks';
 import { AdminModule } from './admin';
 import { ReportingModule } from './reporting';
 import { BridgeModule } from './bridge';
+import { RevenueSplitModule } from './revenue-split';
 import type { SdkConfig } from './types';
 
 export class CarbonVeritasSDK {
@@ -19,6 +20,7 @@ export class CarbonVeritasSDK {
   public admin: AdminModule;
   public reporting: ReportingModule;
   public bridge: BridgeModule;
+  public revenueSplit: RevenueSplitModule;
 
   constructor(config: SdkConfig = {}) {
     this.client = new CarbonVeritasClient(config);
@@ -30,6 +32,7 @@ export class CarbonVeritasSDK {
     this.admin = new AdminModule(this.client);
     this.reporting = new ReportingModule(this.client);
     this.bridge = new BridgeModule(this.client);
+    this.revenueSplit = new RevenueSplitModule(this.client);
   }
 }
 
@@ -42,6 +45,7 @@ export { WebhooksModule } from './webhooks';
 export { AdminModule } from './admin';
 export { ReportingModule } from './reporting';
 export { BridgeModule } from './bridge';
+export { RevenueSplitModule } from './revenue-split';
 
 export * from './types';
 

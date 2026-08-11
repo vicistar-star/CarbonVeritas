@@ -154,3 +154,44 @@ Publish a new merkle root for a registry. Called by the root oracle / admin mult
 ```
 
 Available from the SDK (`sdk.bridge`), CLI (`cv bridge`), and frontend (`/bridge`).
+
+## Revenue Split (Project Beneficiary Payouts)
+
+Automatically splits project payments among stakeholders (developer, community, carbon bank, partners) at settlement. The protocol fee is deducted first, then the remainder is split on-chain by the RevenueSplit contract according to basis-point shares.
+
+### Public
+
+#### `GET /revenue-split/:projectId/config`
+
+Get the revenue-split configuration for a project (beneficiaries and their bps shares, plus the protocol fee).
+
+### Authenticated
+
+#### `POST /revenue-split/:projectId/distribute`
+
+Distribute a payment among a project's configured beneficiaries. The protocol fee is sent to the fee address first; the remainder is split by each beneficiary's bps share.
+
+```json
+{
+  "asset": "G...USD",
+  "amount": 500000000
+}
+```
+
+### Admin only (`ADMIN_WALLETS`)
+
+#### `POST /revenue-split/:projectId/config`
+
+Configure the revenue-split beneficiaries for a project. The sum of all `bps` shares must be exactly `10000`.
+
+```json
+{
+  "beneficiaries": [
+    { "address": "G...developer", "bps": 6000 },
+    { "address": "G...community", "bps": 3000 },
+    { "address": "G...bank", "bps": 1000 }
+  ]
+}
+```
+
+Available from the SDK (`sdk.revenueSplit`) and CLI (`cv revenue-split`).

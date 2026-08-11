@@ -68,6 +68,7 @@ Main entry point with modules:
 | `sdk.webhooks` | Webhook endpoint management |
 | `sdk.reporting` | GHG Protocol Scope 3 inventory exports |
 | `sdk.bridge` | Merkle bridge (legacy registry credit imports) |
+| `sdk.revenueSplit` | Revenue split (project beneficiary payouts) |
 | `sdk.admin` | Protocol governance |
 | `sdk.client` | Low-level client (auth, health, raw requests) |
 
@@ -153,4 +154,26 @@ const record = await sdk.bridge.bridgeIn({
   metadata: { projectId: 'P-001', methodology: 'VCS:VM0007', /* ... */ },
 });
 console.log(record.creditId, record.status); // 7 INBOUND
+```
+
+### RevenueSplitModule
+
+- `getConfig(projectId)` — Revenue-split configuration for a project
+- `configure(projectId, input)` — Set beneficiary shares (admin token; bps must sum to 10000)
+- `distribute(projectId, input)` — Distribute a payment among the configured beneficiaries
+
+```typescript
+await sdk.revenueSplit.configure('P-001', {
+  beneficiaries: [
+    { address: 'G...developer', bps: 6000 },
+    { address: 'G...community', bps: 3000 },
+    { address: 'G...bank', bps: 1000 },
+  ],
+});
+
+const result = await sdk.revenueSplit.distribute('P-001', {
+  asset: 'G...USD',
+  amount: 500000000, // smallest unit
+});
+console.log(result.txHash);
 ```
