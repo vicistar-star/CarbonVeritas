@@ -21,6 +21,7 @@ import { AdminModule } from './admin/admin.module';
 import { ObservabilityModule } from './observability/observability.module';
 import { MetricsInterceptor } from './observability/metrics.interceptor';
 import { ReportingModule } from './reporting/reporting.module';
+import { BridgeModule } from './bridge/bridge.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { ReportingModule } from './reporting/reporting.module';
     AdminModule,
     ObservabilityModule,
     ReportingModule,
+    BridgeModule,
   ],
   controllers: [AppController],
   providers: [

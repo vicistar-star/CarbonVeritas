@@ -29,6 +29,11 @@ enum VerifierStatus {
   UNREGISTERED
 }
 
+enum BridgeStatus {
+  INBOUND
+  OUTBOUND
+}
+
 model User {
   id           String   @id @default(cuid())
   stellarPub   String   @unique
@@ -43,6 +48,7 @@ model User {
   trades          Trade[]
   webhooks        Webhook[]
   certificates    Certificate[]
+  bridgedRecords  BridgeRecord[] @relation("Bridger")
 
   @@index([stellarPub])
 }
@@ -236,4 +242,22 @@ model Challenge {
 
   @@index([wallet])
   @@index([expiresAt])
+}
+
+model BridgeRecord {
+  id             String       @id @default(cuid())
+  creditId       Int
+  sourceRegistry String
+  sourceSerial   String
+  merkleRoot     String
+  status         BridgeStatus @default(INBOUND)
+  bridgerId      String
+  bridger        User         @relation("Bridger", fields: [bridgerId], references: [id])
+  txHash         String
+  timestamp      DateTime     @default(now())
+
+  @@unique([sourceRegistry, sourceSerial])
+  @@index([creditId])
+  @@index([bridgerId])
+  @@index([status])
 }

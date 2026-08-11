@@ -87,3 +87,70 @@ curl -H "Authorization: Bearer $JWT" \
   "https://api-testnet.carbonveritas.io/v1/reporting/scope3?format=csv" \
   -o scope3.csv
 ```
+
+## Merkle Bridge (Legacy Registry Imports)
+
+The bridge ports credits from legacy registries (Verra, Gold Standard, CDM, ACR, CAR, Plan Vivo) onto Stellar. Every import requires a Merkle inclusion proof against the registry's published on-chain root, preventing double-minting; bridged credits can be returned to their source registry via `bridge out`.
+
+### Public
+
+#### `GET /bridge/records`
+
+List the public bridge audit ledger.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `registry` | string | — | Filter by source registry (e.g. `VERRA`) |
+| `status` | `INBOUND` \| `OUTBOUND` | — | Filter by bridge direction |
+| `page` | number | 1 | Page number |
+| `limit` | number | 20 | Page size (max 100) |
+
+#### `GET /bridge/registries/:registry/root`
+
+Get the currently published merkle root for a registry, with the block height it corresponds to and the on-chain update timestamp.
+
+### Authenticated
+
+#### `POST /bridge/in`
+
+Bridge a credit from a legacy registry onto Stellar.
+
+```json
+{
+  "sourceRegistry": "VERRA",
+  "sourceSerial": "VCS-1500-00034567-2023",
+  "leaf": "3a2f...", 
+  "merkleProof": ["4b1c..."],
+  "merkleRoot": "5c3d...",
+  "metadata": {
+    "projectId": "VCS-1500-AMZ-001",
+    "methodology": "VCS:VM0007",
+    "vintageStart": 1704067200,
+    "vintageEnd": 1735689600,
+    "tonnes": 10000000,
+    "geography": "BR",
+    "serialPrefix": "VCS-1500-"
+  }
+}
+```
+
+The proof is verified read-only against `merkleRoot` first, so a bad proof is rejected before any settlement fee is paid. On success the credit is minted on-chain with `ACTIVE` status (the source registry's verification is inherited) and an `INBOUND` record is appended to the bridge ledger.
+
+#### `POST /bridge/credits/:creditId/out`
+
+Bridge a previously imported credit back to its source registry for retirement there. Only the credit owner can call this, and only for credits that were imported via `POST /bridge/in`. The on-chain credit is permanently retired to prevent double-counting.
+
+### Admin only (`ADMIN_WALLETS`)
+
+#### `POST /bridge/registries/:registry/root`
+
+Publish a new merkle root for a registry. Called by the root oracle / admin multi-sig whenever a legacy registry publishes a new commitment.
+
+```json
+{
+  "root": "5c3d...",
+  "blockHeight": 24150000
+}
+```
+
+Available from the SDK (`sdk.bridge`), CLI (`cv bridge`), and frontend (`/bridge`).

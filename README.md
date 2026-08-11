@@ -1058,6 +1058,22 @@ The JSON report aggregates retirements into a summary (total tonnes retired, ret
 
 ---
 
+### Merkle Bridge
+
+Import credits from legacy registries (Verra, Gold Standard, CDM, ACR, CAR, Plan Vivo) onto Stellar, and return them for retirement on the source registry:
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/bridge/in` | Required | Bridge a credit in using a Merkle inclusion proof |
+| POST | `/bridge/credits/:creditId/out` | Owner | Bridge a credit back to its source registry |
+| GET | `/bridge/records` | Public | Public bridge audit ledger (filterable, paginated) |
+| GET | `/bridge/registries/:registry/root` | Public | Published merkle root for a registry |
+| POST | `/bridge/registries/:registry/root` | Admin | Publish a new merkle root for a registry |
+
+Every import is verified read-only against the registry's published root before any fee is paid, and the on-chain MerkleBridge contract enforces double-minting prevention by `(registry, serial)`. Bridged credits are minted `ACTIVE` on-chain (inheriting the source registry's verification) and are fully tradable through the marketplace. Also available from the SDK (`sdk.bridge`), CLI (`cv bridge`), and frontend (`/bridge`).
+
+---
+
 ### Webhooks
 
 Register webhook endpoints to receive real-time notifications:

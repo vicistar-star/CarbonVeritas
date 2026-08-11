@@ -83,6 +83,15 @@ export function createPrismaMock() {
       update: jest.fn(),
       deleteMany: jest.fn(),
     },
+    bridgeRecord: {
+      count: jest.fn(),
+      create: jest.fn(),
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+      deleteMany: jest.fn(),
+    },
   };
 }
 
@@ -99,6 +108,11 @@ export function createStellarMock() {
     cancelOffer: jest.fn(),
     registerVerifier: jest.fn(),
     getCertificateHash: jest.fn(),
+    bridgeIn: jest.fn(),
+    bridgeOut: jest.fn(),
+    verifyProof: jest.fn(),
+    getRegistryRoot: jest.fn(),
+    updateRegistryRoot: jest.fn(),
   };
 }
 

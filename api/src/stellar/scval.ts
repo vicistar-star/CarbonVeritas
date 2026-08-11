@@ -216,6 +216,12 @@ export const VERIFIER_FIELDS = [
   'registeredAt',
 ] as const;
 
+export const REGISTRY_ROOT_FIELDS = [
+  'root',
+  'blockHeight',
+  'updatedAt',
+] as const;
+
 const CONFIG_FIELDS = [
   'admin',
   'verifierThreshold',
@@ -274,6 +280,10 @@ export function decodeRetirementRecord(sv: RawScVal): Record<string, unknown> {
 
 export function decodeVerifier(sv: RawScVal): Record<string, unknown> {
   return decodeStruct(VERIFIER_FIELDS, sv);
+}
+
+export function decodeRegistryRoot(sv: RawScVal): Record<string, unknown> {
+  return decodeStruct(REGISTRY_ROOT_FIELDS, sv);
 }
 
 export function decodeContractConfig(sv: RawScVal): Record<string, unknown> {

@@ -12,6 +12,7 @@ import {
   decodeApprovalRecord,
   decodeCreditMetadata,
   decodeOffer,
+  decodeRegistryRoot,
   decodeRetirementRecord,
   scAddress,
   scBytes32,
@@ -426,7 +427,7 @@ export class StellarService {
     merkleProof: string[],
     merkleRoot: string,
     metadata: Record<string, unknown>,
-  ): Promise<number> {
+  ): Promise<{ creditId: number; txHash: string }> {
     this.warnIfSignerMismatch('bridgeIn', bridger, this.adminSecret());
     if (merkleProof.length === 0) {
       throw new BadGatewayException('bridgeIn requires a non-empty merkle proof');
@@ -448,12 +449,16 @@ export class StellarService {
     this.logger.log(
       `bridgeIn: ${sourceRegistry}/${sourceSerial}, expectedRoot=${merkleRoot}, creditId=${String(receipt.returnValue ?? '?')}`,
     );
-    return typeof receipt.returnValue === 'bigint'
-      ? Number(receipt.returnValue)
-      : Number(receipt.returnValue ?? 0);
+    return {
+      creditId:
+        typeof receipt.returnValue === 'bigint'
+          ? Number(receipt.returnValue)
+          : Number(receipt.returnValue ?? 0),
+      txHash: receipt.hash,
+    };
   }
 
-  async bridgeOut(owner: string, creditId: number): Promise<boolean> {
+  async bridgeOut(owner: string, creditId: number): Promise<string> {
     this.warnIfSignerMismatch('bridgeOut', owner, this.adminSecret());
     const receipt = await this.invoke(
       'MERKLE_BRIDGE_CONTRACT',
@@ -461,7 +466,7 @@ export class StellarService {
       [scAddress(owner), scU64(creditId)],
       this.adminSecret(),
     );
-    return receipt.returnValue === true;
+    return receipt.hash;
   }
 
   async verifyProof(
@@ -475,6 +480,57 @@ export class StellarService {
       scBytes32(root),
     ]);
     return value === true;
+  }
+
+  async getRegistryRoot(
+    registry: string,
+  ): Promise<Record<string, unknown> | null> {
+    const sv = await this.readScVal(
+      'MERKLE_BRIDGE_CONTRACT',
+      'get_registry_root',
+      [scString(registry)],
+    );
+    if (sv === null) return null;
+    const native = sv.value() as unknown[];
+    if (!Array.isArray(native) || native.length === 0) return null;
+    const decoded = decodeRegistryRoot(native[0] as RawScVal);
+    return {
+      registry,
+      root:
+        decoded.root instanceof Buffer ? bytesToHex(decoded.root) : decoded.root,
+      blockHeight:
+        typeof decoded.blockHeight === 'bigint'
+          ? Number(decoded.blockHeight)
+          : decoded.blockHeight,
+      updatedAt:
+        typeof decoded.updatedAt === 'bigint'
+          ? Number(decoded.updatedAt) * 1000
+          : decoded.updatedAt,
+    };
+  }
+
+  async updateRegistryRoot(
+    admin: string,
+    registry: string,
+    root: string,
+    blockHeight: number,
+  ): Promise<string> {
+    this.warnIfSignerMismatch('updateRegistryRoot', admin, this.adminSecret());
+    const receipt = await this.invoke(
+      'MERKLE_BRIDGE_CONTRACT',
+      'update_registry_root',
+      [
+        scAddress(admin),
+        scString(registry),
+        scBytes32(root),
+        scU64(blockHeight),
+      ],
+      this.adminSecret(),
+    );
+    this.logger.log(
+      `updateRegistryRoot: registry=${registry}, root=${root}, blockHeight=${blockHeight}, tx=${receipt.hash}`,
+    );
+    return receipt.hash;
   }
 
   async registerVerifier(address: string, stake: number): Promise<boolean> {
