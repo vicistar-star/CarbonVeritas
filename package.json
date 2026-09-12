@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "dev": "turbo dev",
+    "prebuild": "npx prisma generate --schema api/prisma/schema.prisma",
     "build": "turbo build",
     "lint": "turbo lint",
     "test": "turbo test",
