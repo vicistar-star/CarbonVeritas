@@ -36,6 +36,13 @@ export class CertificatesController {
     return this.certificatesService.enqueueBatch(user.id, dto);
   }
 
+  @ApiBearerAuth()
+  @Get('owned')
+  @ApiOperation({ summary: 'Get all certificates for authenticated wallet' })
+  async getOwned(@CurrentUser() user: { id: string; wallet: string }) {
+    return this.certificatesService.getOwnedCertificates(user.id);
+  }
+
   @Public()
   @Get(':id')
   @ApiOperation({ summary: 'Get certificate metadata (JSON)' })
@@ -48,13 +55,10 @@ export class CertificatesController {
   @ApiOperation({ summary: 'Stream signed PDF certificate' })
   async getPdf(@Param('id') id: string, @Res() res: Response) {
     const streamable = await this.certificatesService.getCertificatePdf(id);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="certificate-${id}.pdf"`,
+    });
     streamable.getStream().pipe(res);
-  }
-
-  @ApiBearerAuth()
-  @Get('owned')
-  @ApiOperation({ summary: 'Get all certificates for authenticated wallet' })
-  async getOwned(@CurrentUser() user: { id: string; wallet: string }) {
-    return this.certificatesService.getOwnedCertificates(user.id);
   }
 }

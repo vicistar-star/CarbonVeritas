@@ -13,6 +13,7 @@ import { MarketplaceService } from './marketplace.service';
 import { CreateOfferDto } from './dto/create-offer.dto';
 import { MarketplaceFilterDto } from './dto/marketplace-filter.dto';
 import { CurrentUser } from '../auth/current-user.decorator';
+import { Public } from '../auth/public.decorator';
 
 @ApiTags('Marketplace')
 @Controller('marketplace')
@@ -50,6 +51,7 @@ export class MarketplaceController {
     return this.marketplaceService.cancelOffer(user.id, id);
   }
 
+  @Public()
   @Get('listings')
   @ApiOperation({ summary: 'List active offers with filters and pagination' })
   async getListings(@Query() filters: MarketplaceFilterDto) {
@@ -63,12 +65,14 @@ export class MarketplaceController {
     return this.marketplaceService.getTradeHistory(user.id);
   }
 
+  @Public()
   @Get('price-history')
   @ApiOperation({ summary: 'Get time-series price history' })
   async getPriceHistory() {
     return this.marketplaceService.getPriceHistory();
   }
 
+  @Public()
   @Get('stats')
   @ApiOperation({ summary: 'Get marketplace stats (volume, VWAP, open interest)' })
   async getStats() {

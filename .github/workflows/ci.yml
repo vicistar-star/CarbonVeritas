@@ -12,7 +12,7 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  RUST_TOOLCHAIN: "1.75.0"
+  RUST_TOOLCHAIN: "1.96.0"
   NODE_VERSION: "20"
 
 jobs:
@@ -168,6 +168,10 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate --schema=../api/prisma/schema.prisma
+        working-directory: indexer
 
       - name: Lint
         run: npm run lint

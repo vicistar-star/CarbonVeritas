@@ -10,7 +10,7 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateWebhookDto {
   @ApiProperty({ description: 'Webhook callback URL', example: 'https://api.example.com/carbon-webhook' })
-  @IsUrl({ require_tld: false })
+  @IsUrl({ require_protocol: true, require_tld: false })
   @IsNotEmpty()
   url: string;
 
