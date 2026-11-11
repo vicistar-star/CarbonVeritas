@@ -6,10 +6,7 @@
 [![Soroban](https://img.shields.io/badge/Smart%20Contracts-Soroban-FF4C8B?style=for-the-badge)](https://soroban.stellar.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-36A2EF?style=for-the-badge)](LICENSE)
 [![Tests](https://img.shields.io/badge/Tests-Passing-00C853?style=for-the-badge)](#testing)
-[![Coverage](https://img.shields.io/badge/Coverage-94%25-00C853?style=for-the-badge)](#testing)
-[![Testnet](https://img.shields.io/badge/Testnet-Live-00C853?style=for-the-badge)](https://testnet.carbonveritas.io)
-[![Audit](https://img.shields.io/badge/Audit-Trail%20of%20Bits-FF4C8B?style=for-the-badge)](#security)
-[![Discord](https://img.shields.io/badge/Discord-Join%20Us-5865F2?style=for-the-badge&logo=discord)](https://discord.gg/carbonveritas)
+[![GitHub](https://img.shields.io/badge/GitHub-vicistar--star%2FCarbonVeritas-181717?style=for-the-badge&logo=github)](https://github.com/vicistar-star/CarbonVeritas)
 
 ---
 
@@ -495,8 +492,8 @@ docker compose version    # must be >= 2.20.0
 ### Option 1: One-Click Bootstrap (Recommended)
 
 ```bash
-git clone https://github.com/your-org/carbonveritas
-cd carbonveritas
+git clone https://github.com/vicistar-star/CarbonVeritas.git
+cd CarbonVeritas
 ./scripts/bootstrap.sh
 ```
 
@@ -516,8 +513,8 @@ This script:
 
 ```bash
 # 1. Clone and install dependencies
-git clone https://github.com/your-org/carbonveritas
-cd carbonveritas
+git clone https://github.com/vicistar-star/CarbonVeritas.git
+cd CarbonVeritas
 npm install          # installs all workspace packages
 
 # 2. Configure environment
@@ -1199,257 +1196,254 @@ npm install @carbonveritas/sdk
 ### Initialization
 
 ```typescript
-import { CarbonVeritasClient } from '@carbonveritas/sdk';
-import { isConnected, getPublicKey, signTransaction } from '@stellar/freighter-api';
+import { CarbonVeritasSDK } from '@carbonveritas/sdk';
 
-const client = new CarbonVeritasClient({
-  network: 'testnet',                              // 'testnet' | 'mainnet'
-  apiUrl: 'https://api-testnet.carbonveritas.io',  // optional; defaults to official
-  wallet: {
-    getPublicKey,
-    signTransaction,
-  },
+const sdk = new CarbonVeritasSDK({
+  network: 'testnet', // 'testnet' | 'mainnet' | 'futurenet'
+  apiUrl: 'http://localhost:3000', // optional; defaults to official endpoint
 });
 
-// Authenticate (triggers SEP-10 challenge/response via Freighter)
-await client.auth.connect();
-console.log('Connected as:', await client.auth.getAddress());
+// Authenticate via SEP-10 challenge or set existing JWT
+const challenge = await sdk.client.requestChallenge('GDESTINATION...');
+// ... sign challenge transaction with your Stellar keypair ...
+const { accessToken } = await sdk.client.authenticate('GDESTINATION...', 'AAAAAA==');
+sdk.client.setAuthToken(accessToken);
 ```
 
 ### Credits
 
 ```typescript
-// Submit a new credit for verifier approval
-const credit = await client.credits.submit({
+// Issue a new credit
+const credit = await sdk.credits.issue({
   projectId: 'AMZ-REF-001',
   methodology: 'VCS:VM0007',
-  vintageStart: new Date('2024-01-01'),
-  vintageEnd: new Date('2024-12-31'),
+  vintageStart: 2024,
+  vintageEnd: 2024,
   tonnes: 10_000,
   geography: 'BR',
-  documentation: {
-    mrvReport: 'ipfs://bafybei...',
-    projectDesignDocument: 'ipfs://bafybei...',
-  },
-  sdgCobenefits: [13, 15],
-  permanenceRating: 87,
+  metadataUri: 'ipfs://bafybei...',
 });
-console.log(`Submitted credit #${credit.id}, status: ${credit.status}`);
+console.log(`Issued credit #${credit.id}, status: ${credit.status}`);
 
-// Fetch credit with full provenance
-const detail = await client.credits.get(credit.id);
-console.log('Current owner:', detail.owner);
-console.log('Provenance:', detail.provenance);
+// Fetch credit details
+const detail = await sdk.credits.get(credit.id);
+
+// Approve or reject credit (Verifier only)
+await sdk.credits.approve(credit.id, { comments: 'MRV verified via satellite' });
+// or: await sdk.credits.reject(credit.id, { reason: 'Missing baseline calculation' });
 
 // Transfer credit to another address
-await client.credits.transfer({
-  creditId: credit.id,
-  to: 'GDEST...',
-});
-
-// List owned credits
-const portfolio = await client.credits.listOwned({ page: 1, limit: 50 });
+await sdk.credits.transfer(credit.id, 'GDESTINATION...');
 ```
 
 ### Marketplace
 
 ```typescript
 // Create a sell offer
-const offer = await client.marketplace.createOffer({
+const offer = await sdk.marketplace.createOffer({
   creditId: credit.id,
-  amount: 5_000,            // tonnes
-  pricePerTonne: 28.50,     // USD
-  currency: 'USDC',         // 'XLM' | 'USDC'
-  expiresIn: 30 * 24 * 3600, // 30 days in seconds
+  amount: 5_000,
+  pricePerTonne: 28.50,
+  currency: 'USDC',
 });
-console.log(`Listed offer #${offer.id}`);
 
 // Browse listings
-const listings = await client.marketplace.listOffers({
+const listings = await sdk.marketplace.listListings({
   methodology: 'VCS',
   geography: 'BR',
-  maxPrice: 35,
-  sort: 'price_asc',
   limit: 20,
 });
 
-// Buy credits
-const trade = await client.marketplace.buy({
+// Buy credits from an offer
+const trade = await sdk.marketplace.buy({
   offerId: offer.id,
   amount: 1_000,
 });
-console.log(`Trade confirmed: ${trade.txHash}`);
 
 // Cancel an offer
-await client.marketplace.cancelOffer(offer.id);
+await sdk.marketplace.cancelOffer(offer.id);
 ```
 
-### Retirement
+### Retirement & Certificates
 
 ```typescript
-// Retire credits permanently
-const retirement = await client.retirement.retire({
-  creditId: credit.id,
-  amount: 2_000,
+// Permanently retire credits
+const retirement = await sdk.retirement.retire(credit.id, {
   reason: 'Scope 1 emissions offset — FY2024',
   beneficiary: 'Acme Corporation',
-  accountingPeriod: { start: '2024-01-01', end: '2024-12-31' },
+  accountingPeriod: '2024-Q4',
+  tonnesRetired: '2000',
 });
-console.log(`Retired ${retirement.tonnesRetired} tonnes`);
-console.log(`Tx hash: ${retirement.txHash}`);
-
-// Batch retire multiple credits
-const results = await client.retirement.batchRetire([
-  { creditId: 101, amount: 500, reason: '...', beneficiary: '...' },
-  { creditId: 102, amount: 750, reason: '...', beneficiary: '...' },
-]);
-
-// Check retirement status
-const isRetired = await client.retirement.isRetired(credit.id);
-```
-
-### Certificates
-
-```typescript
-// Generate a PDF retirement certificate
-const cert = await client.certificates.generate({
-  retirementId: retirement.id,
-  format: 'pdf',          // 'pdf' | 'json'
-  branding: 'corporate',  // 'default' | 'corporate' | 'minimal'
-  language: 'en',
-});
-
-// Download the PDF as a Buffer
-const pdfBuffer = await client.certificates.download(cert.id);
-fs.writeFileSync('./retirement-cert-2024.pdf', pdfBuffer);
 
 // Verify a certificate by hash
-const isValid = await client.certificates.verify({
-  certId: cert.id,
-  hash: cert.hash,
-});
-
-// Share on social platforms
-await client.certificates.share(cert.id, {
-  platforms: ['linkedin', 'twitter'],
-  message: 'We offset 2,000 tonnes of CO₂ in 2024 via CarbonVeritas 🌿',
-});
+const isValid = await sdk.certificates.verify(retirement.certificateHash);
 ```
 
-### Verifier Operations
+### Verifiers
 
 ```typescript
-// Approve a pending credit (verifier only)
-await client.verifiers.approve({
-  creditId: 456,
-  comments: 'MRV data verified via satellite imagery and field inspection. Additionality confirmed.',
+// Register as an on-chain verifier with collateral stake
+await sdk.verifiers.register({
+  stake: 50_000,
+  credentials: 'https://credentials.example.com/verifier-profile.pdf',
 });
 
-// Reject a credit
-await client.verifiers.reject({
-  creditId: 789,
-  reason: 'Baseline calculation methodology inconsistent with VCS VM0007 requirements.',
+// List all verifiers and pending credit review queue
+const verifiersList = await sdk.verifiers.list();
+const pendingReview = await sdk.verifiers.getPendingCredits();
+
+// Send liveness heartbeat
+await sdk.verifiers.heartbeat(verifierId);
+```
+
+### Revenue Split & Reporting
+
+```typescript
+// Configure revenue split beneficiaries (Admin)
+await sdk.revenueSplit.configure('PRJ-001', {
+  beneficiaries: [
+    { address: 'GBENEFICIARY1...', bps: 6000 },
+    { address: 'GBENEFICIARY2...', bps: 4000 },
+  ],
 });
 
-// Check pending review queue
-const pending = await client.verifiers.getPendingCredits();
+// Download Scope 3 GHG emissions reporting CSV
+const csvBlob = await sdk.reporting.downloadScope3Csv({ year: 2026 });
 ```
 
 ---
 
 ## CLI Tool
 
-Install globally:
+The `@carbonveritas/cli` package provides the **`cv`** command-line utility.
+
+Install globally or run via npx:
 
 ```bash
 npm install -g @carbonveritas/cli
+# or run directly:
+npx cv --help
+```
+
+### Global Options
+
+All commands accept global flags:
+```bash
+cv --api-url <url> --network <testnet|mainnet|futurenet> --wallet <pubkey> <command>
 ```
 
 ### Commands
 
 ```bash
 # System health check
-carbonveritas doctor
+cv doctor
 # → Checks Node version, Stellar connectivity, API reachability, wallet config
 
 # ─── Credits ──────────────────────────────────────────────────────────────────
 
-# Submit a new credit
-carbonveritas credits issue \
+# Issue a new credit
+cv credits issue \
   --project "AMZ-001" \
   --tonnes 5000 \
   --methodology "VCS:VM0007" \
-  --vintage "2024" \
+  --vintage 2024 \
   --geography "BR" \
-  --mrv-doc "ipfs://bafybei..."
+  --metadata "ipfs://bafybei..."
 
 # Get credit details
-carbonveritas credits get 12345
+cv credits get 12345
 
-# List your credits
-carbonveritas credits list --owner
+# List credits
+cv credits list --owner
 
 # Transfer a credit
-carbonveritas credits transfer 12345 --to GDEST...
+cv credits transfer 12345 --to GDEST...
 
 # ─── Marketplace ──────────────────────────────────────────────────────────────
 
-# List active offers
-carbonveritas marketplace list \
+# List active marketplace listings
+cv marketplace listings \
   --methodology VCS \
-  --sort price \
+  --max-price 35 \
   --limit 20
 
 # Create a sell offer
-carbonveritas marketplace offer \
-  --credit 12345 \
+cv marketplace create-offer \
+  --credit-id 12345 \
   --price 28.50 \
   --amount 1000 \
   --currency USDC
 
-# Buy credits
-carbonveritas marketplace buy 67890 --amount 500
+# Buy credits from an offer
+cv marketplace buy 67890 --amount 500
+
+# Cancel an offer
+cv marketplace cancel 67890
 
 # ─── Retirement ───────────────────────────────────────────────────────────────
 
 # Retire a credit
-carbonveritas retire \
-  --credit 12345 \
-  --amount 1000 \
+cv retire 12345 \
   --beneficiary "Acme Corp" \
   --reason "Scope 1 FY2024" \
-  --output ./acme-cert-2024.pdf
-
-# Batch retire from CSV
-carbonveritas retire --batch ./retirements.csv --output-dir ./certs/
-
-# Verify a certificate
-carbonveritas verify ./acme-cert-2024.pdf
-# → ✅ Valid  |  Retired: 1000 tCO₂e  |  Tx: abc123...  |  Block: 12345678
+  --period "2024-Q4" \
+  --amount 1000
 
 # ─── Verifier Operations ──────────────────────────────────────────────────────
 
-# List pending approvals
-carbonveritas verifier pending
+# Register as a verifier with stake
+cv verify register --stake 50000 --credentials "https://..."
+
+# Check verifier status or list all verifiers
+cv verify status [id]
+
+# List credits pending verifier review
+cv verify pending
+
+# Check verifier historical approvals
+cv verify approvals <verifier-id>
 
 # Approve a credit
-carbonveritas verifier approve 456 \
-  --comments "MRV verified via satellite + field inspection"
+cv verify approve 12345 --comments "MRV verified via satellite + field inspection"
 
 # Reject a credit
-carbonveritas verifier reject 789 \
-  --reason "Baseline calculation error"
+cv verify reject 12345 --reason "Baseline calculation error"
+
+# Send verifier liveness heartbeat
+cv verify heartbeat <verifier-id>
 
 # ─── Bridge ───────────────────────────────────────────────────────────────────
 
-# Bridge a Verra credit onto Stellar
-carbonveritas bridge in \
+# Bridge legacy registry credits onto Stellar
+cv bridge in \
   --registry VERRA \
-  --serial "VCS-12345-2024" \
+  --serial "VCS-1500-00034567-2023" \
   --proof ./merkle-proof.json
 
-# Bridge a credit back to Verra
-carbonveritas bridge out --credit 99999
+# Bridge credits out
+cv bridge out --credit 12345
+
+# View bridge audit records
+cv bridge records --registry VERRA
+
+# ─── Revenue Split ─────────────────────────────────────────────────────────────
+
+# View revenue-split configuration for a project
+cv revenue-split config PRJ-001
+
+# Configure beneficiary split shares (must sum to 10,000 bps)
+cv revenue-split configure PRJ-001 --beneficiaries GADDR1:6000,GADDR2:4000
+
+# Distribute revenue payment among configured beneficiaries
+cv revenue-split distribute PRJ-001 --asset <assetAddress> --amount 1000000
+
+# ─── Reporting & Webhooks ─────────────────────────────────────────────────────
+
+# Generate Scope 3 GHG Protocol report
+cv reporting scope3 --year 2026 --format csv --output ./scope3-2026.csv
+
+# List registered webhooks
+cv webhooks list
 ```
 
 ---
@@ -2077,8 +2071,8 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) in full. Key points:
 
 ```bash
 # 1. Fork the repo and create a feature branch
-git clone https://github.com/YOUR-USERNAME/carbonveritas
-cd carbonveritas
+git clone https://github.com/vicistar-star/CarbonVeritas.git
+cd CarbonVeritas
 git checkout -b feat/your-feature-name
 
 # 2. Install dependencies and verify baseline tests pass
@@ -2165,7 +2159,7 @@ All parameter changes go through a 7-day community discussion period followed by
 | 🐦 Twitter / X | [@carbonveritas](https://twitter.com/carbonveritas) | Announcements, ecosystem news |
 | 📧 General Email | hello@carbonveritas.io | Partnerships, media, general inquiries |
 | 🔒 Security Email | security@carbonveritas.io | Vulnerability reports (private) |
-| 🐛 Bug Reports | [GitHub Issues](https://github.com/your-org/carbonveritas/issues) | Bug reports, feature requests |
+| 🐛 Bug Reports | [GitHub Issues](https://github.com/vicistar-star/CarbonVeritas/issues) | Bug reports, feature requests |
 | 📖 Blog | [blog.carbonveritas.io](https://blog.carbonveritas.io) | Deep dives, release notes, protocol updates |
 
 ---
@@ -2192,7 +2186,7 @@ Smart contract bytecode deployed on Stellar Mainnet is additionally governed by 
 
 **Built on Stellar. Verified on Soroban. Committed to our planet.**
 
-[Report Bug](https://github.com/your-org/carbonveritas/issues/new?template=bug_report.md) · [Request Feature](https://github.com/your-org/carbonveritas/issues/new?template=feature_request.md) · [Read Docs](https://docs.carbonveritas.io) · [Join Discord](https://discord.gg/carbonveritas)
+[Report Bug](https://github.com/vicistar-star/CarbonVeritas/issues/new) · [Request Feature](https://github.com/vicistar-star/CarbonVeritas/issues/new) · [Read Docs](https://github.com/vicistar-star/CarbonVeritas#readme)
 
 ---
 
