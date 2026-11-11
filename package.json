@@ -9,12 +9,12 @@
     "indexer"
   ],
   "scripts": {
-    "dev": "turbo dev",
+    "dev": "turbo dev --no-daemon",
     "prebuild": "npx prisma generate --schema api/prisma/schema.prisma",
-    "build": "turbo build",
-    "lint": "turbo lint",
-    "test": "turbo test",
-    "test:coverage": "turbo test:coverage",
+    "build": "turbo build --no-daemon",
+    "lint": "turbo lint --no-daemon",
+    "test": "turbo test --no-daemon",
+    "test:coverage": "turbo test:coverage --no-daemon",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\""
   },
   "devDependencies": {
