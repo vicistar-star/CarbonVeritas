@@ -46,7 +46,7 @@ fn create_metadata(env: &Env) -> CreditMetadata {
 
 fn add_verifiers(env: &Env, client: &CreditRegistryClient<'static>, admin: &Address, count: u32) -> Vec<Address> {
     let mut verifiers = Vec::new(env);
-    for i in 0..count {
+    for _i in 0..count {
         let v = Address::generate(env);
         client.add_verifier(admin, &v);
         verifiers.push_back(v);
@@ -62,12 +62,6 @@ fn test_init() {
 
 #[test]
 fn test_init_invalid_params() {
-    let env = Env::default();
-    env.mock_all_auths();
-    let contract_id = env.register_contract(None, CreditRegistry);
-    let client = CreditRegistryClient::new(&env, &contract_id);
-    let admin = Address::generate(&env);
-
     // threshold = 0 should panic
     let env2 = Env::default();
     env2.mock_all_auths();
@@ -374,6 +368,8 @@ fn test_credits_by_owner() {
 
     let credits = client.get_credits_by_owner(&issuer);
     assert_eq!(credits.len(), 2);
+    assert_eq!(credits.get(0).unwrap(), id1);
+    assert_eq!(credits.get(1).unwrap(), id2);
 }
 
 #[test]
@@ -591,7 +587,7 @@ fn test_credits_by_issuer_pagination() {
     let issuer = Address::generate(&env);
     let metadata = create_metadata(&env);
 
-    for i in 0..5 {
+    for _i in 0..5 {
         client.submit_credit(&issuer, &metadata, &String::from_str(&env, "ipfs://hash"));
     }
 

@@ -66,6 +66,9 @@ impl RevenueSplit {
     /// Uses i128 arithmetic with checked semantics from token client.
     pub fn distribute(env: Env, caller: Address, project_id: String, asset: Address, amount: i128) -> bool {
         caller.require_auth();
+        if amount <= 0 {
+            panic_with_error!(&env, Error::InvalidInput);
+        }
         let config: RevenueConfig = env
             .storage()
             .instance()

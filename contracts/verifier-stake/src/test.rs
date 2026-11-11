@@ -166,6 +166,8 @@ fn test_get_all_verifiers() {
     
     let all = client.get_all_verifiers();
     assert_eq!(all.len(), 2);
+    assert_eq!(all.get(0).unwrap().address, v1);
+    assert_eq!(all.get(1).unwrap().address, v2);
 }
 
 #[test]
@@ -210,7 +212,7 @@ fn test_get_nonexistent_verifier_fails() {
 #[test]
 fn test_register_with_insufficient_balance_fails() {
     let env = Env::default();
-    let (_, token_id, client, _) = setup_test(&env);
+    let (_, _token_id, client, _) = setup_test(&env);
     
     let verifier = Address::generate(&env);
     // Don't mint tokens - should fail with insufficient balance

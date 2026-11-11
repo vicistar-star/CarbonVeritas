@@ -47,7 +47,7 @@ fn create_metadata(env: &Env) -> CreditMetadata {
 fn create_active_credit(
     env: &Env,
     registry: &CreditRegistryClient<'static>,
-    admin: &Address,
+    _admin: &Address,
     owner: &Address,
     verifier: &Address,
 ) -> u64 {

@@ -218,7 +218,7 @@ fn test_bridge_out() {
 #[test]
 fn test_bridge_out_unauthorized_fails() {
     let env = Env::default();
-    let (admin, _, bridge, registry) = setup_test(&env);
+    let (admin, _, bridge, _registry) = setup_test(&env);
     let bridger = Address::generate(&env);
     let malicious = Address::generate(&env);
     

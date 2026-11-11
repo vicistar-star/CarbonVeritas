@@ -167,7 +167,7 @@ fn test_distribute_unconfigured_project_fails() {
 #[test]
 fn test_multiple_projects() {
     let env = Env::default();
-    let (admin, fee_addr, client, token_id) = setup_test(&env);
+    let (admin, _fee_addr, client, token_id) = setup_test(&env);
     
     let project_a = String::from_str(&env, "PRJ-A");
     let project_b = String::from_str(&env, "PRJ-B");
@@ -212,4 +212,26 @@ fn test_overflow_protection() {
     // Should not overflow with large amounts
     let result = client.distribute(&payer, &project_id, &token_id, &1_000_000_000);
     assert!(result);
+}
+
+#[test]
+fn test_distribute_zero_or_negative_amount_fails() {
+    let env = Env::default();
+    let (admin, _, client, token_id) = setup_test(&env);
+
+    let project_id = String::from_str(&env, "PRJ-001");
+    let ben = Address::generate(&env);
+    client.configure(&admin, &project_id, &vec![&env, (ben, 10000)]);
+
+    let payer = Address::generate(&env);
+
+    let res_zero = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        client.distribute(&payer, &project_id, &token_id, &0);
+    }));
+    assert!(res_zero.is_err());
+
+    let res_neg = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        client.distribute(&payer, &project_id, &token_id, &-100);
+    }));
+    assert!(res_neg.is_err());
 }
