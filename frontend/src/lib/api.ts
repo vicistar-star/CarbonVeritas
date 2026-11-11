@@ -21,6 +21,10 @@ import type {
   BridgeRecord,
   BridgeStatus,
   RegistryRoot,
+  RevenueConfig,
+  RevenueBeneficiary,
+  ConfigureRevenueSplitResult,
+  DistributeRevenueSplitResult,
 } from '@/types';
 
 let apiInstance: AxiosInstance | null = null;
@@ -349,4 +353,32 @@ export async function getProtocolStats(): Promise<ProtocolStats> {
     activeVerifiers: verifiers,
     totalOffers: 0,
   };
+}
+
+// Revenue Split
+export async function getRevenueConfig(projectId: string): Promise<RevenueConfig> {
+  const res = await getApi().get(`/revenue-split/${projectId}/config`);
+  return res.data;
+}
+
+export async function configureRevenueSplit(
+  projectId: string,
+  beneficiaries: RevenueBeneficiary[],
+): Promise<ConfigureRevenueSplitResult> {
+  const res = await getApi().post(`/revenue-split/${projectId}/config`, {
+    beneficiaries,
+  });
+  return res.data;
+}
+
+export async function distributeRevenue(
+  projectId: string,
+  asset: string,
+  amount: number,
+): Promise<DistributeRevenueSplitResult> {
+  const res = await getApi().post(`/revenue-split/${projectId}/distribute`, {
+    asset,
+    amount,
+  });
+  return res.data;
 }

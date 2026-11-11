@@ -9,6 +9,7 @@ import {
   getSystemStatus,
   getAdminContracts,
   publishRegistryRoot,
+  configureRevenueSplit,
 } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -62,6 +63,9 @@ export default function AdminPage() {
   const [slashing, setSlashing] = useState(false);
 
   // Revenue split
+  const [projectId, setProjectId] = useState('PRJ-001');
+  const [savingSplit, setSavingSplit] = useState(false);
+  const [splitSuccess, setSplitSuccess] = useState<string | null>(null);
   const [beneficiaries, setBeneficiaries] = useState<Array<{ address: string; bps: string }>>([
     { address: '', bps: '' },
   ]);
@@ -152,15 +156,34 @@ export default function AdminPage() {
 
   const handleSaveRevenueSplit = async () => {
     setError(null);
+    setSplitSuccess(null);
+    if (!projectId.trim()) {
+      setError('Please provide a Project ID.');
+      return;
+    }
     const totalBps = beneficiaries.reduce((sum, b) => sum + (Number(b.bps) || 0), 0);
     if (totalBps !== 10000) {
       setError(`Beneficiary BPS must sum to 10000 (currently ${totalBps})`);
       return;
     }
+    const invalidBeneficiary = beneficiaries.some((b) => !b.address.trim() || Number(b.bps) <= 0);
+    if (invalidBeneficiary) {
+      setError('Each beneficiary must have a valid address and a positive BPS.');
+      return;
+    }
+    setSavingSplit(true);
     try {
-      await new Promise((r) => setTimeout(r, 500));
-    } catch {
-      setError('Failed to save revenue split.');
+      const result = await configureRevenueSplit(
+        projectId.trim(),
+        beneficiaries.map((b) => ({ address: b.address.trim(), bps: Number(b.bps) })),
+      );
+      setSplitSuccess(
+        `Revenue split configured successfully for ${result.projectId}! (Tx: ${result.txHash ? result.txHash.slice(0, 10) + '...' : 'confirmed'})`,
+      );
+    } catch (err: unknown) {
+      setError((err as Error).message || 'Failed to save revenue split.');
+    } finally {
+      setSavingSplit(false);
     }
   };
 
@@ -465,6 +488,22 @@ export default function AdminPage() {
               <CardTitle>Revenue Split Configuration</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Project ID</label>
+                <Input
+                  placeholder="e.g. PRJ-001"
+                  value={projectId}
+                  onChange={(e) => setProjectId(e.target.value)}
+                  className="max-w-xs"
+                />
+              </div>
+
+              {splitSuccess && (
+                <div className="rounded-md bg-green-500/10 border border-green-500/20 p-3 text-sm text-green-700 dark:text-green-400">
+                  {splitSuccess}
+                </div>
+              )}
+
               <div className="space-y-3">
                 {beneficiaries.map((b, i) => (
                   <div key={i} className="flex items-center gap-3">
@@ -503,7 +542,10 @@ export default function AdminPage() {
                   Total BPS: {beneficiaries.reduce((sum, b) => sum + (Number(b.bps) || 0), 0)} / 10000
                 </div>
               </div>
-              <Button onClick={handleSaveRevenueSplit}>Save Revenue Split</Button>
+              <Button onClick={handleSaveRevenueSplit} disabled={savingSplit}>
+                {savingSplit && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save Revenue Split
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>

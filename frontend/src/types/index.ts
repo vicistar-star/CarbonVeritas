@@ -273,3 +273,35 @@ export interface RegistryRoot {
   blockHeight: number;
   updatedAt: number;
 }
+
+export interface RevenueBeneficiary {
+  address: string;
+  bps: number;
+}
+
+export interface RevenueConfig {
+  projectId: string;
+  beneficiaries: RevenueBeneficiary[];
+  protocolFeeBps: number;
+}
+
+export interface ConfigureRevenueSplitInput {
+  beneficiaries: RevenueBeneficiary[];
+}
+
+export interface ConfigureRevenueSplitResult {
+  projectId: string;
+  txHash: string;
+}
+
+export interface DistributeRevenueSplitInput {
+  asset: string;
+  amount: number;
+}
+
+export interface DistributeRevenueSplitResult {
+  projectId: string;
+  asset: string;
+  amount: number;
+  txHash: string;
+}
