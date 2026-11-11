@@ -1,14 +1,14 @@
 import { Command } from 'commander';
-import { CarbonVeritasClient, CreditsModule } from '@carbonveritas/sdk';
+import { CarbonVeritasSDK } from '@carbonveritas/sdk';
 
-function getCreditsModule(): CreditsModule {
-  const client = new CarbonVeritasClient({
+function getSdk(): CarbonVeritasSDK {
+  const sdk = new CarbonVeritasSDK({
     apiUrl: process.env.CV_API_URL,
     network: process.env.CV_NETWORK as 'testnet' | 'mainnet' | 'futurenet',
   });
   const token = process.env.CV_AUTH_TOKEN;
-  if (token) client.setAuthToken(token);
-  return new CreditsModule(client);
+  if (token) sdk.client.setAuthToken(token);
+  return sdk;
 }
 
 export function registerVerifyCommands(program: Command): void {
@@ -16,18 +16,13 @@ export function registerVerifyCommands(program: Command): void {
 
   verify
     .command('register')
-    .description('Register as a verifier')
+    .description('Register as a verifier with stake')
     .requiredOption('--stake <amount>', 'Minimum stake amount', parseFloat)
     .option('--credentials <url>', 'URL to credentials documentation')
     .action(async (opts) => {
       try {
-        const client = new CarbonVeritasClient({
-          apiUrl: process.env.CV_API_URL,
-          network: process.env.CV_NETWORK as 'testnet' | 'mainnet' | 'futurenet',
-        });
-        const token = process.env.CV_AUTH_TOKEN;
-        if (token) client.setAuthToken(token);
-        const result = await client.post('/verifiers/register', {
+        const sdk = getSdk();
+        const result = await sdk.verifiers.register({
           stake: opts.stake,
           credentials: opts.credentials,
         });
@@ -39,18 +34,40 @@ export function registerVerifyCommands(program: Command): void {
     });
 
   verify
-    .command('status [address]')
-    .description('Check verifier status (yours or by address)')
-    .action(async (address?: string) => {
+    .command('status [id]')
+    .description('Check verifier status (all verifiers or by verifier id)')
+    .action(async (id?: string) => {
       try {
-        const client = new CarbonVeritasClient({
-          apiUrl: process.env.CV_API_URL,
-          network: process.env.CV_NETWORK as 'testnet' | 'mainnet' | 'futurenet',
-        });
-        const token = process.env.CV_AUTH_TOKEN;
-        if (token) client.setAuthToken(token);
-        const path = address ? `/verifiers/${address}` : '/verifiers';
-        const result = await client.get(path);
+        const sdk = getSdk();
+        const result = id ? await sdk.verifiers.get(id) : await sdk.verifiers.list();
+        console.log(JSON.stringify(result, null, 2));
+      } catch (err: unknown) {
+        console.error('Error:', (err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  verify
+    .command('pending')
+    .description('List credits pending verifier review')
+    .action(async () => {
+      try {
+        const sdk = getSdk();
+        const result = await sdk.verifiers.getPendingCredits();
+        console.log(JSON.stringify(result, null, 2));
+      } catch (err: unknown) {
+        console.error('Error:', (err as Error).message);
+        process.exit(1);
+      }
+    });
+
+  verify
+    .command('approvals <id>')
+    .description('List historical approvals for a verifier id')
+    .action(async (id: string) => {
+      try {
+        const sdk = getSdk();
+        const result = await sdk.verifiers.getApprovals(id);
         console.log(JSON.stringify(result, null, 2));
       } catch (err: unknown) {
         console.error('Error:', (err as Error).message);
@@ -63,9 +80,9 @@ export function registerVerifyCommands(program: Command): void {
     .description('Approve a credit as a verifier')
     .option('--comments <text>', 'Approval comments')
     .action(async (creditId: string, opts) => {
-      const mod = getCreditsModule();
       try {
-        const result = await mod.approve(parseInt(creditId, 10), { comments: opts.comments });
+        const sdk = getSdk();
+        const result = await sdk.credits.approve(parseInt(creditId, 10), { comments: opts.comments });
         console.log(JSON.stringify(result, null, 2));
       } catch (err: unknown) {
         console.error('Error:', (err as Error).message);
@@ -78,9 +95,9 @@ export function registerVerifyCommands(program: Command): void {
     .description('Reject a credit as a verifier')
     .requiredOption('--reason <text>', 'Rejection reason')
     .action(async (creditId: string, opts) => {
-      const mod = getCreditsModule();
       try {
-        const result = await mod.reject(parseInt(creditId, 10), { reason: opts.reason });
+        const sdk = getSdk();
+        const result = await sdk.credits.reject(parseInt(creditId, 10), { reason: opts.reason });
         console.log(JSON.stringify(result, null, 2));
       } catch (err: unknown) {
         console.error('Error:', (err as Error).message);
@@ -89,17 +106,12 @@ export function registerVerifyCommands(program: Command): void {
     });
 
   verify
-    .command('heartbeat')
-    .description('Send liveness heartbeat as a verifier')
-    .action(async () => {
+    .command('heartbeat <id>')
+    .description('Send liveness heartbeat for a verifier')
+    .action(async (id: string) => {
       try {
-        const client = new CarbonVeritasClient({
-          apiUrl: process.env.CV_API_URL,
-          network: process.env.CV_NETWORK as 'testnet' | 'mainnet' | 'futurenet',
-        });
-        const token = process.env.CV_AUTH_TOKEN;
-        if (token) client.setAuthToken(token);
-        const result = await client.post('/verifiers/heartbeat');
+        const sdk = getSdk();
+        const result = await sdk.verifiers.heartbeat(id);
         console.log(JSON.stringify(result, null, 2));
       } catch (err: unknown) {
         console.error('Error:', (err as Error).message);
