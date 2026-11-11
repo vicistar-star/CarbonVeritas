@@ -113,6 +113,25 @@ export interface Verifier {
   user: { stellarPub: string };
 }
 
+export interface VerifierProfile extends Verifier {
+  totalApprovals?: number;
+}
+
+export interface VerifierApproval {
+  id: string;
+  verifierId: string;
+  creditId: number;
+  decision: string;
+  comments?: string;
+  createdAt: string;
+  credit?: {
+    creditId: number;
+    projectId: string;
+    methodology: string;
+    status: string;
+  };
+}
+
 export type VerifierStatus = 'PENDING' | 'ACTIVE' | 'SLASHED' | 'UNREGISTERED';
 
 export interface PaginatedResponse<T> {

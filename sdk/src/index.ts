@@ -8,6 +8,7 @@ import { AdminModule } from './admin';
 import { ReportingModule } from './reporting';
 import { BridgeModule } from './bridge';
 import { RevenueSplitModule } from './revenue-split';
+import { VerifiersModule } from './verifiers';
 import type { SdkConfig } from './types';
 
 export class CarbonVeritasSDK {
@@ -21,6 +22,7 @@ export class CarbonVeritasSDK {
   public reporting: ReportingModule;
   public bridge: BridgeModule;
   public revenueSplit: RevenueSplitModule;
+  public verifiers: VerifiersModule;
 
   constructor(config: SdkConfig = {}) {
     this.client = new CarbonVeritasClient(config);
@@ -33,6 +35,7 @@ export class CarbonVeritasSDK {
     this.reporting = new ReportingModule(this.client);
     this.bridge = new BridgeModule(this.client);
     this.revenueSplit = new RevenueSplitModule(this.client);
+    this.verifiers = new VerifiersModule(this.client);
   }
 }
 
@@ -46,6 +49,7 @@ export { AdminModule } from './admin';
 export { ReportingModule } from './reporting';
 export { BridgeModule } from './bridge';
 export { RevenueSplitModule } from './revenue-split';
+export { VerifiersModule } from './verifiers';
 
 export * from './types';
 

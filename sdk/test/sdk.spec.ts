@@ -5,6 +5,7 @@ import { WebhooksModule } from '../src/webhooks';
 import { ReportingModule } from '../src/reporting';
 import { BridgeModule } from '../src/bridge';
 import { RevenueSplitModule } from '../src/revenue-split';
+import { VerifiersModule } from '../src/verifiers';
 
 interface RecordedRequest {
   method?: string;
@@ -190,6 +191,63 @@ function makeHarness() {
         amount: 1000000000,
         txHash: 'tx-distribute',
       };
+    } else if (url.endsWith('/verifiers/register')) {
+      data = {
+        id: 'v-1',
+        userId: 'u-1',
+        status: 'ACTIVE',
+        stake: 50000,
+        reputation: 100,
+        createdAt: '2026-08-01T00:00:00.000Z',
+        user: { stellarPub: 'GVERIFIER' },
+      };
+    } else if (url.endsWith('/verifiers/pending')) {
+      data = [
+        {
+          id: 1,
+          creditId: 101,
+          projectId: 'P-001',
+          methodology: 'VM0007',
+          status: 'PENDING',
+        },
+      ];
+    } else if (url.endsWith('/approvals')) {
+      data = [
+        {
+          id: 'appr-1',
+          verifierId: 'v-1',
+          creditId: 101,
+          decision: 'APPROVED',
+          createdAt: '2026-08-01T00:00:00.000Z',
+        },
+      ];
+    } else if (url.endsWith('/heartbeat')) {
+      data = {
+        id: 'v-1',
+        status: 'ACTIVE',
+        heartbeatAt: '2026-08-01T00:00:00.000Z',
+      };
+    } else if (url.match(/\/verifiers\/[^/]+$/)) {
+      data = {
+        id: 'v-1',
+        userId: 'u-1',
+        status: 'ACTIVE',
+        stake: 50000,
+        reputation: 100,
+        totalApprovals: 5,
+        user: { stellarPub: 'GVERIFIER' },
+      };
+    } else if (url.endsWith('/verifiers')) {
+      data = [
+        {
+          id: 'v-1',
+          userId: 'u-1',
+          status: 'ACTIVE',
+          stake: 50000,
+          reputation: 100,
+          user: { stellarPub: 'GVERIFIER' },
+        },
+      ];
     } else {
       data = {};
     }
@@ -570,5 +628,71 @@ describe('RevenueSplitModule', () => {
     expect(requests[0]).toMatchObject({ method: 'post', url: '/revenue-split/P-001/distribute' });
     expect(requests[0].data).toEqual({ asset: 'GUSDC', amount: 1000000000 });
     expect(result.txHash).toBe('tx-distribute');
+  });
+});
+
+describe('VerifiersModule', () => {
+  it('registers a verifier with stake', async () => {
+    const { client, requests } = makeHarness();
+    const verifiers = new VerifiersModule(client);
+
+    const result = await verifiers.register({ stake: 50000, credentials: 'https://credentials.example.com' });
+    expect(requests[0]).toMatchObject({
+      method: 'post',
+      url: '/verifiers/register',
+      data: { stake: 50000, credentials: 'https://credentials.example.com' },
+    });
+    expect(result.id).toBe('v-1');
+    expect(result.stake).toBe(50000);
+  });
+
+  it('lists registered verifiers', async () => {
+    const { client, requests } = makeHarness();
+    const verifiers = new VerifiersModule(client);
+
+    const list = await verifiers.list();
+    expect(requests[0]).toMatchObject({ method: 'get', url: '/verifiers' });
+    expect(list).toHaveLength(1);
+    expect(list[0].id).toBe('v-1');
+  });
+
+  it('gets pending credits for verifiers to review', async () => {
+    const { client, requests } = makeHarness();
+    const verifiers = new VerifiersModule(client);
+
+    const credits = await verifiers.getPendingCredits();
+    expect(requests[0]).toMatchObject({ method: 'get', url: '/verifiers/pending' });
+    expect(credits).toHaveLength(1);
+    expect(credits[0].status).toBe('PENDING');
+  });
+
+  it('gets a verifier profile by id', async () => {
+    const { client, requests } = makeHarness();
+    const verifiers = new VerifiersModule(client);
+
+    const profile = await verifiers.get('v-1');
+    expect(requests[0]).toMatchObject({ method: 'get', url: '/verifiers/v-1' });
+    expect(profile.id).toBe('v-1');
+    expect(profile.totalApprovals).toBe(5);
+  });
+
+  it('gets verifier approvals history', async () => {
+    const { client, requests } = makeHarness();
+    const verifiers = new VerifiersModule(client);
+
+    const approvals = await verifiers.getApprovals('v-1');
+    expect(requests[0]).toMatchObject({ method: 'get', url: '/verifiers/v-1/approvals' });
+    expect(approvals).toHaveLength(1);
+    expect(approvals[0].decision).toBe('APPROVED');
+  });
+
+  it('sends verifier heartbeat', async () => {
+    const { client, requests } = makeHarness();
+    const verifiers = new VerifiersModule(client);
+
+    const result = await verifiers.heartbeat('v-1');
+    expect(requests[0]).toMatchObject({ method: 'post', url: '/verifiers/v-1/heartbeat' });
+    expect(result.id).toBe('v-1');
+    expect(result.heartbeatAt).toBeDefined();
   });
 });
